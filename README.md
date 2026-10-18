@@ -5,17 +5,25 @@ Private funding workspace for individuals, students, freelancers, businesses, an
 ## Implemented
 
 - D1 persistence for account-scoped profiles, saved opportunities, application status, and notes.
-- Explained applicant-category/country/keyword/award alignment scores, with unresolved eligibility requirements.
-- Official Grants.gov API discovery: original links, deadlines, applicant categories, award ceilings.
+- Explained applicant-category/country/state/study-level/keyword/award alignment scores, with unresolved eligibility requirements. Whole-word interest matching avoids false substring matches.
+- Multi-interest Grants.gov searches with related terms, pagination, fair interleaving, cached details, bounded refreshes, and search rotation.
+- Live CareerOneStop public scholarship listing facts, California state open-data grants, U.S. Chamber business grant leads, Poets & Writers fellowships/prizes, original private program pages, and relevant official student aid page checks.
+- Per-source health, record counts, retrieval timestamps, deadline confidence, and distinct grant/fellowship/competition labels.
 - Shared catalog refreshed manually or by a private scheduled task; in-app new-match inbox.
 - Responsive interface, filters, sorting, and JSON workspace export.
 - Private Site MCP tools `refresh_grants` and `grant_refresh_status` for unattended updates.
 
 ## Coverage and limits
 
-Live discovery supports U.S. federal grants. It uses the first comma-separated interest and applicant category, retrieves up to 12 recent results per search, and caps distinct searches at 20 per run. It is not exhaustive. Citizenship, local restrictions, ownership, enrollment, memberships, and project eligibility need provider review. Notes and study level are retained for review, not automatically verified. Scores are not funding probabilities.
+Federal discovery uses up to six interests/related terms per profile, up to 30 unique searches per run and two pages of 50 results per query. Results interleave fairly before the 300-detail refresh cap; recent records are reused for 20 hours. Excess searches rotate across runs. Repeated source IDs deduplicate across searches; original discovery timestamps survive refreshes. CSV imports batch D1 writes.
 
-Four curated private/student programs were reviewed October 18, 2026. They are not a live scholarship/private feed. International and local feeds need additional adapters. Email delivery is not configured. Scheduled tasks update the catalog and can report meaningful changes through ChatGPT.
+Scholarship discovery uses CareerOneStop's public official CDN (the primary public hostname rejects server fetches). It combines national, profile-state, and up to three interest searches; up to 16 searches rotate with two pages of 50 listings each. Study levels and source state scope filter profiles. Listing facts are attributed to CareerOneStop / Gale. Full rules remain at the linked directory record and sponsor. No paid/token API is accessed. Month-only or recurring dates never acquire an invented current year.
+
+California's official daily-updated CSV supplies active state grants. Loans and government-only applicants are excluded. Other state business-grant portals still require adapters; the Chamber source contributes some state leads and detects state government domains. U.S. scholarship state filters cover all states. Official student aid checks cover Pell, FSEOG, TEACH, NY TAP, California programs, PA programs, and Washington College Grant when relevant. JavaScript-only pages are link checks, not live verified program rules.
+
+U.S. Chamber CO— supplies private-business grant leads and sponsor links; loans/investments are excluded. Poets & Writers supplies up to 100 upcoming writing listings; grants, fellowships, and prizes are distinct. WomensNet and Awesome Foundation program pages are checked live. NASE remains curated if its original page blocks automation. Guide listings and recurring programs are not automatically assumed open. Citizenship, local restrictions, ownership, financial need, memberships, and detailed project eligibility require provider review. Profile background notes are not automatically verified. Scores are not award probabilities.
+
+International and further state/local feeds need additional adapters. Email delivery is not configured. The existing daily 9 a.m. Eastern task invokes the multi-source updater without republishing.
 
 Keep this Site owner-private: `/api/refresh` and `/mcp` rely on the platform access boundary. Restrict writers to an owner/admin role before expanding access. Workspace routes require signed-in identity; mutations check origin. No credentials are placed in client storage.
 
@@ -25,6 +33,9 @@ Keep this Site owner-private: `/api/refresh` and `/mcp` rely on the platform acc
 - Broad applicant categories: https://www.grantwatch.com/
 - Student matching: https://www.scholarships.com/support/frequently-asked-questions
 - API documentation: https://www.grants.gov/api/common/search2 and https://www.grants.gov/api/common/fetchopportunity
+- California data: https://data.ca.gov/dataset/california-grants-portal (official daily CSV)
+- Private business leads: https://www.uschamber.com/co/run/business-financing/small-business-grants-and-programs
+- Writing funding/awards: https://www.pw.org/grants
 - Curated sources: https://www.nase.org/become-a-member/member-benefits/business-resources/growth-grants , https://www.awesomefoundation.org/en , https://ambergrantsforwomen.com/get-an-amber-grant/ , https://studentaid.gov/understand-aid/types/grants/pell
 - Further student search: https://www.careeronestop.org/toolkit/training/find-scholarships.aspx
 
@@ -32,4 +43,6 @@ Keep this Site owner-private: `/api/refresh` and `/mcp` rely on the platform acc
 
 Node 22.13+, `npm run install:ci`, `npm run db:generate` after schema changes, and the Sites build helper for production. Apply generated SQL to local D1 before preview. `npm run dev` serves port 5173. Use local sign-in for preview identity; production identity comes from Sites headers.
 
-Validation covers TypeScript, production build, matching boundaries, browser profile creation/save/tracker, and live discovery with persisted readback. Scheduling is configured separately through the linked Sites schedule.
+Run `node --test tests/funding.test.mjs` for parser, geographic, study-level, closed/deadline, URL, investment exclusion, and keyword-boundary checks. Type-check with `node node_modules/typescript/bin/tsc --noEmit`.
+
+Expanded local integration test (October 18, 2026): 763 distinct records refreshed across seven source groups, 368 scholarship rows fetched across searches, 118 active California grants, 24 business grant leads, and 100 writing awards/fellowships. Synthetic profiles returned 48 California business, 354 NY undergraduate, and 125 freelance writing potential matches. Counts include unconfirmed recurring cycles and prizes and do not indicate eligibility or award likelihood. Some federal student aid pages correctly reported link-check-only status. No synthetic profiles are placed in production.

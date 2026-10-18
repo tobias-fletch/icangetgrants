@@ -1,43 +1,64 @@
+import { env } from 'cloudflare:workers';
 import { getDb } from '@/db';
 import { catalog, jobs, workspaces } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { Grant, Profile, Workspace, seeds } from './grants';
-const clean=(s:unknown)=>String(s??'').replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ').replace(/&#39;/g,"'").replace(/&quot;/g,'"').replace(/\s+/g,' ').trim();
-export async function allGrants():Promise<Grant[]> {return [...seeds,...(await getDb().select().from(catalog)).map(x=>JSON.parse(x.data))];}
+import { match, seeds } from './grants';
+import type { Grant, Profile, Workspace } from './grants';
+import { clean, countryName, stateName, interests, explicitDate, parseCalifornia, parseScholarships, parsePrivateAwards, parseBusinessGrants } from './source-parsers';
+import { relevantPrograms, checkedProgram } from './programs';
+export async function allGrants():Promise<Grant[]> {const records=(await getDb().select().from(catalog)).map(x=>JSON.parse(x.data) as Grant);const ids=new Set(records.map(x=>x.id));return [...seeds.filter(g=>!ids.has(g.id)),...records];}
 export async function getWorkspace(owner:string):Promise<Workspace>{const rows=await getDb().select().from(workspaces).where(eq(workspaces.owner,owner));return rows[0]?JSON.parse(rows[0].data):{profiles:[],saved:[],seen:''};}
 export async function saveWorkspace(owner:string,data:Workspace){await getDb().insert(workspaces).values({owner,data:JSON.stringify(data)}).onConflictDoUpdate({target:workspaces.owner,set:{data:JSON.stringify(data)}});}
-const codes:Record<string,string>={'Student':'21','Individual':'21','Freelancer':'21|23','Small business':'23','Nonprofit':'12|13'};
-async function api(path:string,body:unknown){const r=await fetch('https://api.grants.gov/v1/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});if(!r.ok)throw new Error('Grants.gov returned '+r.status);const j=await r.json() as any;if(j.errorcode!==0 || !j.data)throw new Error('Grants.gov did not return valid results');return j.data;}
-export async function discover(profiles:Profile[]){
- const db=getDb(), now=new Date().toISOString();let count=0, added=0;const errors:string[]=[];const existing=new Map((await db.select().from(catalog)).map(x=>[x.id,JSON.parse(x.data) as Grant]));
- const queries=new Map<string,{keyword:string;eligibilities:string}>();
- for(const p of profiles.filter(x=>x.alerts)){
-  if(p.country!=='United States')continue;
-  const keyword=p.keywords.split(',').map(x=>x.trim()).filter(Boolean)[0]||'';
-  const q={keyword:keyword.slice(0,100),eligibilities:codes[p.type]||'21'};queries.set(JSON.stringify(q),q);
- }
- for(const q of Array.from(queries.values()).slice(0,20)){
-  try{
-   const results=await api('search2',{...q,rows:12,oppStatuses:'posted',fundingInstruments:'G',sortBy:'openDate|desc'});
-   const hits=results.oppHits||[];
-   for(let start=0;start<hits.length;start+=4){
-    await Promise.all(hits.slice(start,start+4).map(async(h:any)=>{
-     try{
-      const d=await api('fetchOpportunity',{opportunityId:Number(h.id)});const s=d.synopsis;if(!s)return;
-      const applicantCodes=(s.applicantTypes||[]).map((a:any)=>String(a.id));
-      const types=Object.keys(codes).filter(t=>codes[t].split('|').some(c=>applicantCodes.includes(c))||applicantCodes.includes('99'));
-      if(!types.length)return;
-      const raw=h.closeDate;const date=raw?new Date(raw):null;const deadline=date&&!isNaN(date.getTime())?date.toISOString().slice(0,10):null;
-      if(deadline && deadline<now.slice(0,10))return;
-      const id='gov-'+h.id;
-      const g:Grant={id,title:clean(h.title),funder:clean(s.agencyName||h.agency||h.agencyName),description:clean(s.synopsisDesc).slice(0,1600),types,countries:['United States'],tags:(s.fundingActivityCategories||[]).map((x:any)=>clean(x.description)),amount:Number(s.awardCeiling)||null,deadline,url:'https://www.grants.gov/search-results-detail/'+h.id,source:'Grants.gov',requirements:[clean(s.applicantEligibilityDesc||'Read the full notice for additional applicant restrictions.'),...(s.costSharing?['Cost sharing or matching funds are required.']:[])],checked:now,discovered:existing.get(id)?.discovered||now,kind:'Federal grant',live:true,applicantCodes};
-      await db.insert(catalog).values({id,data:JSON.stringify(g)}).onConflictDoUpdate({target:catalog.id,set:{data:JSON.stringify(g)}});count++;if(!existing.has(id)){added++;existing.set(id,g);}
-     }catch{errors.push('Could not retrieve details for '+h.id);}
-    }));
-   }
-  }catch(e){errors.push(e instanceof Error?e.message:'Source unavailable');}
- }
- const result={checkedAt:now,checked:count,newGrants:added,queries:queries.size,errors,coverage:'Live federal discovery: United States. Other countries and private/student sources require additional feeds or source review.'};
- await db.insert(jobs).values({id:'last-refresh',data:JSON.stringify(result)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(result)}});
- return result;
+const codes:Record<string,string>={'Student':'21|99','Individual':'21|99','Freelancer':'21|23|99','Small business':'23|99','Nonprofit':'12|13|99'};
+async function text(url:string){const r=await fetch(url,{headers:{Accept:'text/html,application/json,text/csv;q=0.9','User-Agent':'Grantwell/1.1 (funding source discovery)'},signal:AbortSignal.timeout(25000)});if(!r.ok)throw new Error('HTTP '+r.status);const body=await r.text();if(/just a moment|verify you are human|access denied/i.test(body.slice(0,5000)))throw new Error('Source requires browser access');return body;}
+async function api(path:string,body:unknown){const r=await fetch('https://api.grants.gov/v1/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(25000)});if(!r.ok)throw new Error('Grants.gov HTTP '+r.status);const j=await r.json() as any;if(j.errorcode!==0||!j.data)throw new Error('Invalid Grants.gov response');return j.data;}
+async function pool<T>(items:T[],limit:number,fn:(item:T)=>Promise<void>){for(let i=0;i<items.length;i+=limit)await Promise.all(items.slice(i,i+limit).map(fn));}
+export type SourceReport={name:string;status:string;records:number;queries:number;error?:string;note?:string};
+export async function discover(input:Profile[]){
+ const profiles=input.filter(p=>p.alerts),db=getDb(),now=new Date().toISOString();const existing=new Map((await db.select().from(catalog)).map(x=>[x.id,JSON.parse(x.data) as Grant]));const staged=new Map<string,Grant>();const reports:SourceReport[]=[];let cursor=0;const old=await db.select().from(jobs).where(eq(jobs.id,'last-refresh'));if(old[0])cursor=JSON.parse(old[0].data).cursor||0;const cycleStart=cursor;
+ function stage(g:Grant){const prior=staged.get(g.id)||existing.get(g.id);if(prior){if(g.source==='U.S. Chamber CO—'&&prior.sourceMode==='Official program page')return;g.discovered=prior.discovered;if(g.id.startsWith('cos-')){g.countries=[...new Set([...prior.countries,...g.countries])];g.states=prior.states?.length&&g.states?.length?[...new Set([...prior.states,...g.states])]:[];}}staged.set(g.id,g);}
+ async function source(name:string,run:(report:SourceReport)=>Promise<void>){const report:SourceReport={name,status:'Connected',records:0,queries:0};reports.push(report);try{await run(report);}catch(e){report.status=report.records?'Partial':'Unavailable';report.error=(e as Error).message;}}
+ if(profiles.length)await Promise.all([
+ source('Grants.gov',async report=>{
+  const plan=new Map<string,{keyword:string;eligibilities:string}>();for(const p of profiles){if(countryName(p.country)!=='United States')continue;for(const keyword of interests(p)){const q={keyword:keyword.slice(0,100),eligibilities:codes[p.type]||'21|99'};plan.set(JSON.stringify(q),q);}}
+  const all=[...plan.values()],limit=30;const offset=all.length?cursor%all.length:0;const selected=[...all.slice(offset),...all.slice(0,offset)].slice(0,limit);report.note=`${selected.length}/${all.length} interest searches; up to 100 results each. Details capped at 300 distinct records per run. Remaining searches rotate across runs.`;
+  const buckets:any[][]=[];await pool(selected,3,async q=>{const hits:any[]=[];for(let page=0;page<2;page++){try{const response=await api('search2',{...q,rows:50,startRecordNum:page*50,oppStatuses:'posted',fundingInstruments:'G',sortBy:'openDate|desc'});report.queries++;hits.push(...response.oppHits||[]);if((response.oppHits||[]).length<50)break;}catch(e){report.status='Partial';report.error=(e as Error).message;break;}}buckets.push(hits);});
+  // Interleave search pages so one broad interest cannot consume every detail slot.
+  const ordered=new Map<string,any>();for(let i=0;i<100;i++)for(const hits of buckets)if(hits[i])ordered.set(String(hits[i].id),hits[i]);
+  let detailCalls=0;const candidates=[...ordered.values()];await pool(candidates,5,async h=>{const id='gov-'+h.id;const prev=existing.get(id);if(prev&&Date.parse(prev.checked)>Date.now()-20*3600000){stage(prev);report.records++;return;}if(detailCalls>=300)return;detailCalls++;
+   try{const d=await api('fetchOpportunity',{opportunityId:Number(h.id)});const s=d.synopsis;if(!s)return;const applicantCodes=(s.applicantTypes||[]).map((a:any)=>String(a.id));const types=Object.keys(codes).filter(t=>codes[t].split('|').some(c=>applicantCodes.includes(c)));if(!types.length)return;const deadline=explicitDate(h.closeDate||s.responseDate||'');const closed=!!deadline&&deadline<now.slice(0,10);const grant:Grant={id,title:clean(h.title),funder:clean(s.agencyName||h.agency||h.agencyName),description:clean(s.synopsisDesc).slice(0,2000),types,countries:['United States'],tags:(s.fundingActivityCategories||[]).map((x:any)=>clean(x.description)),amount:Number(s.awardCeiling)||null,deadline,deadlineLabel:clean(h.closeDate||s.responseDateDesc||'See notice'),url:'https://www.grants.gov/search-results-detail/'+h.id,source:'Grants.gov',requirements:[clean(s.applicantEligibilityDesc||'Read the full notice for additional applicant restrictions.'),...(s.costSharing?['Cost sharing or matching funds are required.']:[])],checked:now,discovered:now,kind:'Federal grant',live:true,applicantCodes,status:closed?'Closed':'Open'};stage(grant);report.records++;}catch(e){report.status='Partial';report.error=(e as Error).message;}
+  });
+  cursor+=selected.length;if(!all.length){report.status='Not needed';report.note='No monitored U.S. profile interests.';}
+ }),
+ source('CareerOneStop Scholarship Finder',async report=>{
+  const searches=new Map<string,{country:string;state?:string;keyword?:string}>();for(const p of profiles.filter(p=>p.type==='Student')){const country=countryName(p.country);if(country!=='United States')continue;const state=stateName(p.state);const contexts=[{country,state:undefined,keyword:undefined},...(state?[{country,state,keyword:undefined}]:[]),...interests(p).slice(0,3).map(keyword=>({country,state:undefined,keyword}))];for(const c of contexts)searches.set(JSON.stringify(c),c);}
+  const all=[...searches.values()],offset=all.length?cycleStart%all.length:0,selected=[...all.slice(offset),...all.slice(0,offset)].slice(0,16);report.note=`Public listing facts; ${selected.length}/${all.length} national, state, and interest searches, up to 100 listings each. Excess searches rotate. Recurring dates without a year remain unconfirmed. Full details: CareerOneStop / Gale.`;
+  await pool(selected,3,async context=>{for(let page=1;page<=2;page++){const params=new URLSearchParams({pagesize:'50',curPage:String(page),georestrictionfilter:context.state||'US'});if(context.keyword)params.set('keyword',context.keyword);try{const html=await text('https://cloudfront.careeronestop.org/toolkit/training/find-scholarships.aspx?'+params);report.queries++;const records=parseScholarships(html,now,context);for(const g of records)stage(g);report.records+=records.length;if(records.length<50)break;}catch(e){report.status=report.records?'Partial':'Unavailable';report.error=(e as Error).message;break;}}});
+  if(!selected.length){report.status='Not needed';report.note='Add a monitored U.S. student profile for national, state, and interest searches.';}
+ }),
+ source('California Grants Portal',async report=>{
+  if(!profiles.some(p=>countryName(p.country)==='United States'&&stateName(p.state)==='California')){report.status='Not needed';report.note='Connected state grant feed runs for California profiles.';return;}
+  const raw=await text('https://publish.data.ca.gov/dataset/e1b1c799-cdd4-4219-af6d-93b79747fffb/resource/111c8c88-21f6-453c-ae2c-b4785a0624f5/download/california-grants-portal-data.csv');report.queries=1;const records=parseCalifornia(raw,now);if(!records.length)throw new Error('No active eligible categories parsed; verify state source format.');records.forEach(stage);report.records=records.length;report.note='Official daily-updated state CSV; open grants only, excluding loans and government-only applicant categories.';
+ }),
+ source('Poets & Writers',async report=>{
+  if(!profiles.some(p=>['Individual','Freelancer','Student'].includes(p.type))){report.status='Not needed';report.note='Private arts funding and awards for individual applicants.';return;}
+  const html=await text('https://www.pw.org/grants?items_per_page=100&field_deadline_value=1');report.queries=1;const records=parsePrivateAwards(html,now);records.forEach(stage);report.records=records.length;report.note='Private writing grants, fellowships, and prizes are labeled separately. Entry fees and residency need review.';
+ }),
+ source('U.S. Chamber CO—',async report=>{
+  if(!profiles.some(p=>['Small business','Freelancer'].includes(p.type)&&countryName(p.country)==='United States')){report.status='Not needed';return;}
+  const html=await text('https://www.uschamber.com/co/run/business-financing/small-business-grants-and-programs');report.queries=1;const records=parseBusinessGrants(html,now);if(!records.length)throw new Error('No business grant leads parsed.');records.forEach(stage);report.records=records.length;report.note='Live business funding guide leads with sponsor links. Recurring programs are not assumed open. Loans and investments are excluded.';
+ }),
+ source('Official student aid programs',async report=>{
+  const programs=relevantPrograms(profiles);await pool(programs,3,async program=>{try{const html=await text(program.url);const g=checkedProgram(program,html,now);stage(g);report.records++;report.queries++;if(!g.live){report.status='Partial';report.note='Some official pages require JavaScript; these show link-check-only status, not live verified rules.';}}catch(e){report.status='Partial';report.error=program.title+': '+(e as Error).message;}});if(!programs.length){report.status='Not needed';report.note='No student profile in a supported program jurisdiction.';}
+ }),
+ source('WomensNet & Awesome Foundation',async report=>{
+  const programs=seeds.filter(g=>['amber','awesome'].includes(g.id)&&profiles.some(p=>match(g,p).score>0));await pool(programs,2,async seed=>{try{const html=await text(seed.url);const content=clean(html);const amount=seed.id==='amber'?Number(content.match(/next\s+\$([\d,]+)\s+Amber Grant/i)?.[1]?.replace(/,/g,''))||null:content.includes('$1,000')?1000:null;const deadline=seed.id==='amber'?explicitDate(content.match(/application cutoff[\s\S]{0,150}/i)?.[0]||''):null;stage({...seed,amount,deadline,checked:now,discovered:now,live:true,status:deadline?'Open':'Verify chapter/cycle',sourceMode:'Official program page',requirements:[...seed.requirements,'Program page checked automatically; confirm full current rules with the provider.']});report.records++;report.queries++;}catch(e){report.status='Partial';report.error=seed.source+': '+(e as Error).message;}});if(!programs.length)report.status='Not needed';
+ })
+ ]);
+ // Batches keep large source imports within Worker/D1 subrequest limits.
+ const records=[...staged.values()];if(!env.DB)throw new Error('Database unavailable');for(let i=0;i<records.length;i+=40){await env.DB.batch(records.slice(i,i+40).map(g=>env.DB!.prepare('INSERT INTO catalog (id,data) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').bind(g.id,JSON.stringify(g))));}
+ const newRecords=records.filter(g=>!existing.has(g.id)&&g.status!=='Closed');const combined=new Map(existing);records.forEach(g=>combined.set(g.id,g));
+ const liveMatches=profiles.map(p=>({profileId:p.id,matches:[...combined.values()].filter(g=>match(g,p).score>0).length,newMatches:newRecords.filter(g=>match(g,p).score>0).length}));
+ const result={checkedAt:now,checked:records.length,newGrants:newRecords.length,newMatchedOpportunities:newRecords.filter(g=>profiles.some(p=>match(g,p).score>0)).length,queries:reports.reduce((s,r)=>s+r.queries,0),errors:reports.filter(r=>r.error).map(r=>r.name+': '+r.error),sources:reports,profileCoverage:liveMatches,cursor,coverage:'Live federal grants, public scholarship listings, California state grants, private business grant leads, writing grants/fellowships/prizes, and official student aid program checks. Unknown cycles and browser-only rules remain clearly marked.'};
+ await db.insert(jobs).values({id:'last-refresh',data:JSON.stringify(result)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(result)}});return result;
 }

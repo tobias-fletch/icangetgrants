@@ -1,5 +1,6 @@
 export type Profile = { id:string; name:string; type:string; country:string; state:string; keywords:string; goal:number; education:string; details:string; alerts:boolean };
-export type Grant = { id:string; title:string; funder:string; description:string; types:string[]; countries:string[]; tags:string[]; amount:number|null; deadline:string|null; url:string; source:string; requirements:string[]; checked:string; discovered:string; kind:string; live:boolean; applicantCodes?:string[] };
+import { countryName, stateName } from './source-parsers';
+export type Grant = { id:string; title:string; funder:string; description:string; types:string[]; countries:string[]; tags:string[]; amount:number|null; deadline:string|null; url:string; source:string; requirements:string[]; checked:string; discovered:string; kind:string; live:boolean; applicantCodes?:string[]; states?:string[]; studyLevels?:string[]; deadlineLabel?:string; status?:string; sourceUrl?:string; sourceUpdated?:string; attribution?:string; sourceMode?:string };
 export type Saved = { profileId:string; grantId:string; status:string; notes:string };
 export type Workspace = { profiles:Profile[]; saved:Saved[]; seen:string };
 export const empty:Workspace = {profiles:[], saved:[], seen:''};
@@ -12,16 +13,24 @@ export const seeds:Grant[] = [
 export function match(g:Grant,p:Profile) {
  const reasons:string[]=[]; const gaps=[...g.requirements];
  if(!g.types.includes(p.type)) return {score:0,reasons:['Applicant type does not match'],gaps};
- if(p.country && !g.countries.includes('Worldwide') && !g.countries.includes(p.country)) return {score:0,reasons:['Country does not match'],gaps};
+ const country=countryName(p.country),state=stateName(p.state);
+ if(country && !g.countries.includes('Worldwide') && !g.countries.includes('Unspecified') && !g.countries.includes(country)) return {score:0,reasons:['Country does not match'],gaps};
+ if(g.states?.length && (!state||!g.states.some(s=>stateName(s)===state)))return {score:0,reasons:['State or region does not match the source scope'],gaps};
+ if(g.studyLevels?.length&&p.education&&!g.studyLevels.includes(p.education))return {score:0,reasons:['Study level does not match'],gaps};
+ if(g.status==='Closed')return {score:0,reasons:['Applications closed'],gaps};
  let score=40; reasons.push(p.type+' applicant category aligns');
- if(p.country){score+=15;reasons.push(g.countries.includes('Worldwide')?'International chapter network':'Country is within the source coverage');} else gaps.push('Add your country to check geographic fit.');
+ if(country&&!g.countries.includes('Unspecified')){score+=15;reasons.push(g.countries.includes('Worldwide')?'International chapter network':'Country is within the source coverage');} else gaps.push('Geographic eligibility must be confirmed with the provider.');
+ if(g.states?.length){score+=5;reasons.push('Found in '+state+' source coverage');}
+ if(g.studyLevels?.includes(p.education)){score+=5;reasons.push('Study level aligns');}
  const words=p.keywords.toLowerCase().split(/[,\s]+/).filter(w=>w.length>2);
  const hay=(g.title+' '+g.description+' '+g.tags.join(' ')).toLowerCase();
- const hits=words.filter(w=>hay.includes(w));
+ const hits=words.filter(w=>new RegExp('(?:^|[^a-z0-9])'+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:s|al|ing)?(?=$|[^a-z0-9])','i').test(hay));
+ if(!hits.length&&['Federal grant','State grant','Fellowship','Award / competition'].includes(g.kind))return {score:0,reasons:['No project or field alignment found'],gaps};
  if(hits.length){score+=Math.min(25,hits.length*10);reasons.push('Relevant to '+hits.slice(0,3).join(', '));}else gaps.push('Project or field alignment needs review.');
  if(p.goal && g.amount && g.amount>=p.goal){score+=10;reasons.push('Published maximum covers your funding goal');}
  if(!p.state) gaps.push('State and local restrictions have not been checked.');
- if(g.live) gaps.push('Federal category match is preliminary; review the full notice for location, project, and other restrictions.');
+ if(g.kind==='Federal grant') gaps.push('Federal category match is preliminary; review the full notice for location, project, and other restrictions.');
+ if(g.deadlineLabel&&!g.deadline)gaps.push('Published window: '+g.deadlineLabel+'. No exact year-specific deadline is confirmed.');
  if(g.deadline && new Date(g.deadline+'T23:59:59Z')<new Date()) return {score:0,reasons:['Deadline has passed'],gaps};
  return {score:Math.min(90,score),reasons,gaps};
 }
