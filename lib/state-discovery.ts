@@ -39,6 +39,6 @@ export async function scanState(source:StateSource,category:'business'|'aid',fet
  for(const page of pages){for(const link of extractStateLinks(page.html,page.url,category)){if(link.hub){report.directories++;continue;}const g=stateRecord(source,category,link,page.url,now);records.set(g.id,g);}
   const headings=[...pageContent(page.html).matchAll(category==='aid'?/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi:/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)];for(const h of headings){const heading=clean(h[1]);if(heading.length>4&&heading.length<150&&/\b(?:grant|scholarship|fellowship)\b/i.test(heading)&&!fundingHub(heading)&&!administrativeTitle(heading)&&!/Federal Pell|FSEOG|TEACH Grant/i.test(heading)){const g=stateRecord(source,category,{url:page.url,title:heading,context:clean(pageContent(page.html)).slice(0,1500)},page.url,now);records.set(g.id,g);}}
  }
- report.records=records.size;report.status=records.size?'Program leads found':'Directory checked';if(!records.size)report.note+=' No distinct program leads parsed; use the source link or scheduled research. Directories are not counted as grants.';
- return {records:[...records.values()].slice(0,60),report};
+ const distinct=[...new Map([...records.values()].map(g=>[g.title.toLowerCase().replace(/\s+/g,' ').trim(),g])).values()].slice(0,60);report.records=distinct.length;report.status=distinct.length?'Program leads found':'Directory checked';if(!distinct.length)report.note+=' No distinct program leads parsed; use the source link or scheduled research. Directories are not counted as grants.';
+ return {records:distinct,report};
 }
