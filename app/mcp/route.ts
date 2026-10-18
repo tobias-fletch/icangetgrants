@@ -1,3 +1,4 @@
+import { isOwner } from '@/lib/admin';
 import { stateResearchPlan, recordStateOpportunities, markStateResearched } from '@/lib/state-research';
 import { stateSources } from '@/lib/state-registry';
 import { POST as refresh, GET as status } from '@/app/api/refresh/route';
@@ -15,6 +16,7 @@ export async function POST(request:Request){
  if(message.method==='initialize')return reply({protocolVersion:message.params?.protocolVersion||'2026-07-28',capabilities:{tools:{}},serverInfo:{name:'grantwell',version:'1.0.0'}});
  if(message.method==='tools/list')return reply({tools:toolList});
  if(message.method==='tools/call'){
+  if(!await isOwner())return reply({content:[{type:'text',text:'Owner access required for catalog administration.'}],isError:true});
   try{const name=message.params?.name;if(name==='get_state_search_plan')return reply({content:[{type:'text',text:JSON.stringify(await stateResearchPlan())}]});if(name==='record_state_opportunities')return reply({content:[{type:'text',text:JSON.stringify(await recordStateOpportunities(message.params?.arguments))}]});if(name==='mark_state_researched')return reply({content:[{type:'text',text:JSON.stringify(await markStateResearched(message.params?.arguments))}]});const response=name==='refresh_grants'?await refresh():name==='grant_refresh_status'?await status():null;if(!response)throw new Error('Unknown tool');return reply({content:[{type:'text',text:JSON.stringify(await response.json())}]});}catch(e){return reply({content:[{type:'text',text:(e as Error).message}],isError:true});}
  }
  return Response.json({jsonrpc:'2.0',id:message.id,error:{code:-32601,message:'Method not found'}});

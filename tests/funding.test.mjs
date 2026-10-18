@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 const out=resolve('.sites-runtime/tests');mkdirSync(out,{recursive:true});
-for(const name of ['source-parsers','grants','programs','state-registry','state-discovery']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
+for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const parser=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
 const {match,seeds}=await import(pathToFileURL(`${out}/grants.mjs`).href);
 const now='2026-10-18T21:00:00Z';
@@ -31,3 +31,7 @@ test('blocked state source reports browser review and creates no placeholder opp
 test('accordion programs keep distinct IDs and exclude administration',async()=>{const html='<main><h2>College Access Grant</h2><h2>Teaching Scholarship</h2><h2>Grant Calendar</h2><a href="/admin">TEXAS Grant Reporting Forms</a></main>';const result=await stateScan.scanState(stateModule.sourceForState('KY'),'aid',async()=>html,now);assert.deepEqual(result.records.map(g=>g.title).sort(),['College Access Grant','Teaching Scholarship']);assert.equal(new Set(result.records.map(g=>g.id)).size,2);});
 
 test('repeated program headings across linked pages deduplicate',async()=>{const result=await stateScan.scanState(stateModule.sourceForState('KY'),'aid',async()=>'<main><a href="/grants">Grants and Scholarships</a><h2>College Access Grant</h2></main>',now);assert.equal(result.records.length,1);assert.equal(result.report.records,1);});
+
+const access=await import(pathToFileURL(out+'/access.mjs').href);
+test('catalog administration allows only pinned owner and never production local identities',()=>{assert.equal(access.ownerAccess(null),false);assert.equal(access.ownerAccess({userId:'some-other-account'}),false);assert.equal(access.ownerAccess({userId:access.OWNER_USER_ID}),true);assert.equal(access.ownerAccess({userId:'local_seedy'}),false);assert.equal(access.ownerAccess({userId:'local_seedy'},true),true);});
+test('public refresh projection excludes profile IDs, counts and internal search cursor',()=>{const view=access.publicRefresh({checkedAt:now,checked:4,profileCoverage:[{profileId:'private-id'}],cursor:12,newMatchedOpportunities:3,sources:[{name:'State source',records:4,note:'Public programs',error:'private metadata'}]});assert.equal(view.profileCoverage,undefined);assert.equal(view.cursor,undefined);assert.equal(view.newMatchedOpportunities,undefined);assert.equal(view.sources[0].error,undefined);assert.equal(view.sources[0].records,4);assert.equal(access.publicRefresh(null),null);});

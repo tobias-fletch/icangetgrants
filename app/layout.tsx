@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Grantwell — Find funding that fits you",
-  description: "A personal funding workspace for students, independent workers, and growing businesses.",
+  title: "I Can Get Grants — Find funding that fits you",
+  description: "Search grants, scholarships and student aid for free during beta. No account required to search; sign in to save your funding workspace.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

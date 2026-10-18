@@ -1,6 +1,6 @@
-# Grantwell
+# I Can Get Grants (Grantwell engine)
 
-Private funding workspace for individuals, students, freelancers, businesses, and nonprofits. Each signed-in account owns its profiles and application notes. Educators can manage separate student profiles.
+Public beta funding search with private signed-in workspaces for individuals, students, freelancers, businesses, and nonprofits. Each signed-in account owns its profiles and application notes. Educators can manage separate student profiles.
 
 ## Implemented
 
@@ -29,7 +29,9 @@ U.S. Chamber CO— supplies private-business grant leads and sponsor links; loan
 
 International and further city/county feeds need additional adapters. Email delivery is not configured. The existing daily 9 a.m. Eastern task invokes the multi-source updater without republishing.
 
-Keep this Site owner-private: `/api/refresh` and `/mcp` rely on the platform access boundary. Restrict writers to an owner/admin role before expanding access. Workspace routes require signed-in identity; mutations check origin. No credentials are placed in client storage.
+Public beta: anyone may browse the shared catalog and perform state/type/interest matching without signing in. Guest profiles are held in React state for the current visit only; they do not join scheduled discovery. Sign in with ChatGPT creates an isolated workspace for saved profiles, opportunities and application notes. Guest saves and server-side discovery require sign-in. Signed-in source refreshes have an atomic D1 fifteen-minute cooldown per account.
+
+Public access must use the hardened routes in this version. Global refresh/status and all MCP administrative calls require the pinned site-scoped owner ID; the local test owner exception is development-only. Public workspace responses omit global profile coverage/IDs, research plans and search cursor, and use private/no-store caching. Workspace writes require authenticated identity plus same origin. The scheduled task remains owner-authenticated. Never expose owner secrets in client storage.
 
 ## Research
 
