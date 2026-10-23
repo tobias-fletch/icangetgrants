@@ -9,7 +9,7 @@ export const RELATED_TERMS: readonly (readonly string[])[] = [
   ['small business', 'entrepreneur', 'startup', 'start up', 'sba', 'microenterprise', 'micro enterprise'],
   ['women owned', 'women', 'female entrepreneur', 'female entrepreneurs'],
   ['bakery', 'food', 'culinary', 'food business'],
-  ['arts', 'artist', 'art', 'culture', 'creative'],
+  ['arts', 'art', 'artist', 'artists', 'arts organization', 'culture', 'cultural', 'visual arts', 'performing arts', 'music', 'dance', 'theater'],
   ['technology', 'tech', 'stem', 'innovation'],
 ];
 

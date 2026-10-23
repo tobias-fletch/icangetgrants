@@ -67,6 +67,9 @@ test('search matches whole words, every term, and related terms, then ranks titl
  sample({id:'art-word',title:'The art of bread'}),
  sample({id:'start',title:'Start chart party'}),
  sample({id:'creative',tags:['creative'],title:'Studio practice'}),
+ sample({id:'music',title:'Community music grant'}),
+ sample({id:'theater',description:'Support for theater and dance companies'}),
+ sample({id:'visual',tags:['visual arts'],title:'Exhibition fund'}),
  sample({id:'both',title:'Bakery technology program'}),
  sample({id:'food-only',title:'Food hall'}),
  sample({id:'tech-only',title:'Innovation lab'}),
@@ -79,7 +82,12 @@ test('search matches whole words, every term, and related terms, then ranks titl
  assert.deepEqual(ids('food').sort(),foodIds);
  assert.equal(ids('art').includes('start'),false);
  assert.equal(ids('arts').includes('art-word'),true);
- assert.equal(ids('arts').includes('creative'),true);
+ assert.equal(ids('arts').includes('creative'),false);
+ assert.equal(ids('arts').includes('music'),true);
+ assert.equal(ids('arts').includes('theater'),true);
+ assert.equal(ids('visual arts').includes('visual'),true);
+ assert.equal(ids('artist').includes('music'),true);
+ assert.equal(listing.searchGrants([sample({id:'writers',tags:['writing','creative','literature'],title:'Poetry prize'})],'arts').length,0);
  assert.equal(ids('technology').includes('biotech'),false);
  assert.equal(ids('TECHNOLOGY').includes('stem'),true);
  assert.equal(ids('technology').includes('tech-word'),true);
