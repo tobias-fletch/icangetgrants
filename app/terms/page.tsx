@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Confirm, LegalShell } from "@/components/legal-page";
 
 export const metadata: Metadata = {
@@ -43,7 +44,7 @@ export default function TermsPage() {
       <p>
         Sign-in is Sign in with ChatGPT, through <code>/signin-with-chatgpt</code>.
         The app does not create a separate password. What that sign-in shares
-        with this app is described in the <a href="/privacy">privacy policy</a>.
+        with this app is described in the <Link href="/privacy">privacy policy</Link>.
       </p>
       <p>
         This version has no checkout and does not charge a fee inside the app.

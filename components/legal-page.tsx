@@ -1,20 +1,21 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Leaf } from "lucide-react";
 
 export function LegalShell({ children }: { children: ReactNode }) {
   return (
     <div className="legal-page">
       <header className="legal-top">
-        <a className="brand" href="/" aria-label="I Can Get Grants home">
+        <Link className="brand" href="/" aria-label="I Can Get Grants home">
           <span className="brandmark">
             <Leaf size={18} />
           </span>
           I Can Get Grants<span className="branddot">.</span>
-        </a>
+        </Link>
         <nav className="legal-nav" aria-label="Policies">
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-          <a href="/">Back to search</a>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/">Back to search</Link>
         </nav>
       </header>
       <p className="legal-draft" role="note">
@@ -32,8 +33,8 @@ export function LegalShell({ children }: { children: ReactNode }) {
           provider.
         </span>
         <nav className="footer-links" aria-label="Policies">
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
         </nav>
         <span>I Can Get Grants · Beta</span>
       </footer>
