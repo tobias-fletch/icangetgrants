@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 const out=resolve('.sites-runtime/tests');mkdirSync(out,{recursive:true});
-for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing','city-registry','research-plan']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
+for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing','city-registry','research-plan','fetch-budget']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const parser=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
 const {match,seeds,newOpportunityItems,NEW_ITEM_LIMIT,newItemsSchemaProperties,isOpenOpportunity,profileMatches}=await import(pathToFileURL(`${out}/grants.mjs`).href);
 const now='2026-10-18T21:00:00Z';
@@ -345,4 +345,51 @@ test('research plan covers states and Wave 1 cities with limit and rotation',()=
  assert.equal(planModule.cityResearchKey('chicago-il','arts'),'research-city-chicago-il-arts');assert.equal(planModule.stateResearchKey('IL','arts'),'research-IL-arts');
  const route=readFileSync('app/mcp/route.ts','utf8');assert.match(route,/limit:\{type:'integer',minimum:1,maximum:RESEARCH_LIMIT_MAX,default:RESEARCH_LIMIT_DEFAULT\}/);assert.match(route,/stateResearchPlan\(message\.params\?\.arguments\)/);assert.match(route,/cityId:\{type:'string',enum:researchCityIds\}/);
  const research=readFileSync('lib/state-research.ts','utf8');assert.match(research,/city\?cityEvidenceHostAllowed\(city,state,sourceUrl\):evidenceHostAllowed\(state,sourceUrl\)/);
+});
+const budgetModule=await import(pathToFileURL(out+'/fetch-budget.mjs').href);
+const okResponse=(body='<main></main>')=>new Response(body,{status:200});
+const redirect=(to,status=302)=>new Response(null,{status,headers:{location:to}});
+test('run fetch budget: fixed caps plus the page-scan floor stay within the free-plan subrequest limit',()=>{
+ const {RUN_FETCH_LIMIT,SOURCE_FETCH_CAPS,FIXED_SOURCE_FETCHES,PAGE_SCAN_MIN_FETCHES}=budgetModule;
+ assert.ok(RUN_FETCH_LIMIT<=45);assert.equal(FIXED_SOURCE_FETCHES,Object.values(SOURCE_FETCH_CAPS).reduce((s,n)=>s+n,0));
+ assert.equal(FIXED_SOURCE_FETCHES+PAGE_SCAN_MIN_FETCHES,RUN_FETCH_LIMIT);assert.ok(PAGE_SCAN_MIN_FETCHES>=10);
+ const run=new budgetModule.FetchBudget(RUN_FETCH_LIMIT);const children=Object.values(SOURCE_FETCH_CAPS).map(c=>run.child(c));
+ for(const c of children)while(c.take());assert.equal(run.used,FIXED_SOURCE_FETCHES);const pages=run.child(run.remaining);while(pages.take());
+ assert.equal(pages.used,PAGE_SCAN_MIN_FETCHES);assert.equal(run.used,RUN_FETCH_LIMIT);assert.equal(run.take(),false);
+ // A child cannot exceed its own cap even when the run has room, nor the run when the child has room.
+ const big=new budgetModule.FetchBudget(3),c=big.child(10);assert.equal([c.take(),c.take(),c.take(),c.take()].filter(Boolean).length,3);const small=new budgetModule.FetchBudget(10).child(2);assert.equal(small.remaining,2);
+ // Every outside request in discovery goes through a budget: no bare fetch(), and every text()/api() call passes one.
+ const discovery=readFileSync('lib/discovery.ts','utf8');assert.doesNotMatch(discovery.replace(/budgetedFetch\(/g,''),/\bfetch\(/);
+ for(const call of discovery.matchAll(/await (text|api)\(([^;]*?)\)(?:;|\.|,)/g))assert.match(call[2],/,(?:caps\.\w+|pageBudget)\s*$/,call[0]);
+ assert.match(discovery,/url=>text\(url,pageBudget\)/);assert.match(discovery,/deferredRoutes,/);
+});
+test('budgeted fetch charges every redirect hop and stops before overspending',async()=>{
+ const seen=[];const impl=async(url,init)=>{seen.push([url,init.method||'GET',init.redirect]);if(url==='https://a.example/start')return redirect('/next');if(url==='https://a.example/next')return redirect('https://b.example/final',303);return okResponse('done');};
+ const b=new budgetModule.FetchBudget(5);const {response,url}=await budgetModule.budgetedFetch(b,'https://a.example/start',{method:'POST',body:'x'},impl);
+ assert.equal(await response.text(),'done');assert.equal(url,'https://b.example/final');assert.equal(b.used,3);assert.deepEqual(seen.map(s=>s[2]),['manual','manual','manual']);assert.equal(seen[2][1],'GET');
+ const tight=new budgetModule.FetchBudget(2);await assert.rejects(budgetModule.budgetedFetch(tight,'https://a.example/start',{},impl),e=>budgetModule.isBudgetError(e));assert.equal(tight.used,2);
+ const loop=new budgetModule.FetchBudget(10);await assert.rejects(budgetModule.budgetedFetch(loop,'https://c.example/',{},async()=>redirect('/again')),/Too many redirects/);assert.equal(loop.used,budgetModule.MAX_REDIRECTS+1);
+ const none=new budgetModule.FetchBudget(0);let called=0;await assert.rejects(budgetModule.budgetedFetch(none,'https://a.example/',{},async()=>{called++;return okResponse();}),e=>budgetModule.isBudgetError(e));assert.equal(called,0);
+});
+test('state scan stops cleanly at the budget: deferred before the first page, partial after it',async()=>{
+ const source=stateModule.sourceForState('OH');const page=url=>url===source.business.url?'<main><a href="/funding">Funding</a><a href="/grants">Grants</a><h1>Ohio Equipment Grant</h1></main>':'<main><a href="/x-grant">Workforce Training Grant</a></main>';
+ const via=b=>async url=>{const {response}=await budgetModule.budgetedFetch(b,url,{},async u=>okResponse(page(u)));return response.text();};
+ const empty=await stateScan.scanState(source,'business',via(new budgetModule.FetchBudget(0)),now);assert.equal(empty.deferred,true);assert.equal(empty.report.status,'Deferred');assert.equal(empty.report.queries,0);assert.equal(empty.records.length,0);
+ const one=new budgetModule.FetchBudget(1);const partial=await stateScan.scanState(source,'business',via(one),now);assert.equal(partial.deferred,undefined);assert.equal(one.used,1);assert.equal(partial.report.queries,1);assert.match(partial.report.note,/fetch budget reached/);assert.notEqual(partial.report.status,'Browser review');
+ const full=new budgetModule.FetchBudget(10);const done=await stateScan.scanState(source,'business',via(full),now);assert.ok(full.used<=3);assert.ok(done.records.length>=partial.records.length);
+});
+test('page scans rotate oldest first across days, so every arts route is reached within the budget',async()=>{
+ const people=stateModule.stateSources.map(s=>({...p,id:s.code,type:'Individual',state:s.code}));
+ const routes=stateModule.statePlan(people).map(t=>({...t,id:'state-'+t.source.code+'-'+t.category,code:t.source.code,state:t.source.state}));assert.equal(routes.length,50);assert.ok(routes.every(r=>r.category==='arts'));
+ const saved=new Map();const day=86400000,start=Date.parse('2026-10-24T13:00:00Z'),firstScan=new Map();let maxPerRun=0;
+ for(let d=0;d<30;d++){const at=start+d*day;const {fresh,due}=budgetModule.orderScanRoutes(routes,saved,at);
+  if(d===0){assert.equal(fresh.length,0);assert.equal(due.length,50);}
+  const pages=new budgetModule.FetchBudget(budgetModule.PAGE_SCAN_MIN_FETCHES);let deferred=0;
+  for(let i=0;i<due.length;i+=5)await Promise.all(due.slice(i,i+5).map(async item=>{if(pages.remaining<1){deferred++;return;}const r=await stateScan.scanState(item.route.source,'arts',async url=>{const {response}=await budgetModule.budgetedFetch(pages,url,{},async()=>okResponse('<main><a href="/grants">Grants</a><a href="/programs">Grant programs</a></main>'));return response.text();},new Date(at).toISOString());if(r.deferred){deferred++;return;}saved.set(item.route.id,{checkedAt:new Date(at).toISOString()});if(!firstScan.has(item.route.id))firstScan.set(item.route.id,d);}));
+  assert.ok(pages.used<=budgetModule.PAGE_SCAN_MIN_FETCHES);maxPerRun=Math.max(maxPerRun,pages.used);if(d===0)assert.ok(deferred>0);
+ }
+ assert.equal(firstScan.size,50,'every arts route scanned at least once');assert.equal(maxPerRun,budgetModule.PAGE_SCAN_MIN_FETCHES);
+ // Never-scanned routes come first; then the oldest stored scan; errors are rescanned but not ahead of older routes.
+ const m=new Map([['state-AL-arts',{checkedAt:'2026-10-20T00:00:00Z'}],['state-AK-arts',{checkedAt:'2026-10-24T12:00:00Z'}],['state-AZ-arts',{checkedAt:'2026-10-24T12:30:00Z',error:'HTTP 403'}]]);
+ const order=budgetModule.orderScanRoutes(routes.slice(0,4),m,start);assert.deepEqual(order.fresh.map(r=>r.id),['state-AK-arts']);assert.deepEqual(order.due.map(d=>d.route.id),['state-AR-arts','state-AL-arts','state-AZ-arts']);
 });
