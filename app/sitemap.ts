@@ -15,6 +15,7 @@ const PUBLIC_PAGES: Array<{
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/contact", changeFrequency: "yearly", priority: 0.3 },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
