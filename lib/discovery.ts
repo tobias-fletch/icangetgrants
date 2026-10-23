@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { getDb } from '@/db';
 import { catalog, jobs, workspaces } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { match, seeds } from './grants';
+import { match, newOpportunityItems, seeds } from './grants';
 import type { Grant, Profile, Workspace } from './grants';
 import { clean, countryName, stateName, interests, explicitDate, parseCalifornia, parseScholarships, parsePrivateAwards, parseBusinessGrants } from './source-parsers';
 import { relevantPrograms, checkedProgram } from './programs';
@@ -66,6 +66,7 @@ export async function discover(input:Profile[]){
  const records=[...staged.values()];if(!env.DB)throw new Error('Database unavailable');for(let i=0;i<records.length;i+=40){await env.DB.batch(records.slice(i,i+40).map(g=>env.DB!.prepare('INSERT INTO catalog (id,data) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').bind(g.id,JSON.stringify(g))));}
  const newRecords=records.filter(g=>!existing.has(g.id)&&g.status!=='Closed');const combined=new Map(existing);records.forEach(g=>combined.set(g.id,g));
  const liveMatches=profiles.map(p=>({profileId:p.id,matches:[...combined.values()].filter(g=>match(g,p).score>0).length,newMatches:newRecords.filter(g=>match(g,p).score>0).length}));
- const result={checkedAt:now,checked:records.length,newGrants:newRecords.length,newMatchedOpportunities:newRecords.filter(g=>profiles.some(p=>match(g,p).score>0)).length,queries:reports.reduce((s,r)=>s+r.queries,0),errors:reports.filter(r=>r.error).map(r=>r.name+': '+r.error),sources:reports,stateReports,profileCoverage:liveMatches,cursor,coverage:'All 50 states have business-funding and student-aid source routes, with per-state scholarship searches. Source-listed program leads, directories, blocked pages, and unconfirmed application cycles are distinguished. California also has a structured live grant feed.'};
+ const matchedNew=newRecords.filter(g=>profiles.some(p=>match(g,p).score>0));
+ const result={checkedAt:now,checked:records.length,newGrants:newRecords.length,newMatchedOpportunities:matchedNew.length,...newOpportunityItems(newRecords,matchedNew.map(g=>g.id)),queries:reports.reduce((s,r)=>s+r.queries,0),errors:reports.filter(r=>r.error).map(r=>r.name+': '+r.error),sources:reports,stateReports,profileCoverage:liveMatches,cursor,coverage:'All 50 states have business-funding and student-aid source routes, with per-state scholarship searches. Source-listed program leads, directories, blocked pages, and unconfirmed application cycles are distinguished. California also has a structured live grant feed.'};
  await db.insert(jobs).values({id:'last-refresh',data:JSON.stringify(result)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(result)}});return result;
 }
