@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Terms of use (draft) — I Can Get Grants",
   description:
     "Draft terms for the I Can Get Grants public beta. Listings are informational; verify eligibility and deadlines with the provider. Pending review. Not legal advice.",
+  alternates: { canonical: "https://icangetgrants.com/terms" },
 };
 
 export default function TermsPage() {

@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Privacy policy (draft) — I Can Get Grants",
   description:
     "Draft privacy policy for the I Can Get Grants public beta: guest search, Sign in with ChatGPT, workspace data stored in Cloudflare D1, and funding-source requests. Pending review. Not legal advice.",
+  alternates: { canonical: "https://icangetgrants.com/privacy" },
 };
 
 export default function PrivacyPage() {
