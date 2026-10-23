@@ -1,6 +1,6 @@
-export type Profile = { id:string; name:string; type:string; country:string; state:string; keywords:string; goal:number; education:string; details:string; alerts:boolean };
+export type Profile = { id:string; name:string; type:string; country:string; state:string; keywords:string; goal:number; education:string; details:string; alerts:boolean; city?:string };
 import { countryName, stateName } from './source-parsers';
-export type Grant = { id:string; title:string; funder:string; description:string; types:string[]; countries:string[]; tags:string[]; amount:number|null; deadline:string|null; url:string; source:string; requirements:string[]; checked:string; discovered:string; kind:string; live:boolean; applicantCodes?:string[]; states?:string[]; studyLevels?:string[]; deadlineLabel?:string; status?:string; sourceUrl?:string; sourceUpdated?:string; attribution?:string; sourceMode?:string; eligibilityVerified?:boolean };
+export type Grant = { id:string; title:string; funder:string; description:string; types:string[]; countries:string[]; tags:string[]; amount:number|null; deadline:string|null; url:string; source:string; requirements:string[]; checked:string; discovered:string; kind:string; live:boolean; applicantCodes?:string[]; states?:string[]; studyLevels?:string[]; deadlineLabel?:string; status?:string; sourceUrl?:string; sourceUpdated?:string; attribution?:string; sourceMode?:string; eligibilityVerified?:boolean; cities?:string[] };
 export type Saved = { profileId:string; grantId:string; status:string; notes:string };
 export type Workspace = { profiles:Profile[]; saved:Saved[]; seen:string };
 export const empty:Workspace = {profiles:[], saved:[], seen:''};
@@ -41,6 +41,9 @@ export function isOpenOpportunity(g:Pick<Grant,'deadline'|'status'>,now:string|D
  if(/\bclosed\b/i.test(g.status||''))return false;
  return !g.deadline||g.deadline>=today;
 }
+// Profiles watched by discovery, research planning and coverage: every U.S. profile, plus any alert-enabled profile
+// elsewhere so nothing that was monitored before drops out. Alerts only decide who is notified (profileMatches).
+export function monitoredProfiles(profiles:Profile[]){return (profiles||[]).filter(p=>p&&(p.alerts||countryName(p.country)==='United States'));}
 export type ProfileMatch={profileId:string;profile:string;type:string;score:number};
 export function profileMatches(g:Grant,profiles:Profile[]):ProfileMatch[]{
  return profiles.filter(p=>p.alerts).map(p=>({profileId:p.id,profile:p.name,type:p.type,score:match(g,p).score})).filter(m=>m.score>0).sort((a,b)=>b.score-a.score);

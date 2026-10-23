@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 const out=resolve('.sites-runtime/tests');mkdirSync(out,{recursive:true});
-for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
+for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing','city-registry','research-plan']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const parser=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
 const {match,seeds,newOpportunityItems,NEW_ITEM_LIMIT,newItemsSchemaProperties,isOpenOpportunity,profileMatches}=await import(pathToFileURL(`${out}/grants.mjs`).href);
 const now='2026-10-18T21:00:00Z';
@@ -85,7 +85,7 @@ test('refresh and record tools keep their names and publish the new item fields'
  assert.match(route,/newGrants/);
  assert.match(route,/persistedIds/);
  assert.match(research,/evidenceHostAllowed\(state,sourceUrl\)/);
- assert.match(research,/localHosts:t\.source\.localHosts/);
+ assert.match(readFileSync('lib/research-plan.ts','utf8'),/localHosts:t\.source\.localHosts/);
  assert.match(research,/newOpportunityItems\(newRecords,matches\)/);
  assert.match(discovery,/newOpportunityItems\(newRecords,matches\)/);
  assert.match(research,/const matches=new Map\(newRecords\.map\(g=>\[g\.id,profileMatches\(g,profiles\)\]\)\)/);
@@ -93,7 +93,8 @@ test('refresh and record tools keep their names and publish the new item fields'
  assert.match(discovery,/newGrants:newRecords\.length,newMatchedOpportunities:matchedNew\.length/);
  assert.doesNotMatch(research,/host\.includes\('\.'\+state\.code/);
 });
-test('all 50 locations plan business and aid checks without duplicates',()=>{const profiles=stateModule.stateSources.flatMap(s=>[{...p,id:s.code+'b',type:'Small business',state:s.code},{...p,id:s.code+'a',state:s.state}]);assert.equal(stateModule.statePlan(profiles).length,100);assert.equal(stateModule.statePlan([...profiles,...profiles]).length,100);assert.equal(stateModule.statePlan(profiles.map(p=>({...p,alerts:false}))).length,0);});
+test('all 50 locations plan business and aid checks without duplicates',()=>{const profiles=stateModule.stateSources.flatMap(s=>[{...p,id:s.code+'b',type:'Small business',state:s.code},{...p,id:s.code+'a',state:s.state}]);assert.equal(stateModule.statePlan(profiles).length,100);assert.equal(stateModule.statePlan([...profiles,...profiles]).length,100);// Coverage no longer depends on the alerts flag; alerts only control notifications.
+ assert.equal(stateModule.statePlan(profiles.map(p=>({...p,alerts:false}))).length,100);});
 test('directories, loan programs, administrative memos and national aid are not state grants',()=>{const html='<main><a href="/grants">Grants and Scholarships</a><a href="/loans">Business Loan</a><a href="/memo">10/01/2026 TEXAS Grant Allocations Memo</a><a href="https://studentaid.gov/pell">Federal Pell Grant</a><a href="/equipment">Ohio Equipment Grant</a></main>';const links=stateScan.extractStateLinks(html,'https://example.gov/','business');assert.equal(links.filter(l=>!l.hub).length,1);assert.equal(links.filter(l=>!l.hub)[0].title,'Ohio Equipment Grant');assert.ok(links.find(l=>l.title==='Grants and Scholarships').hub);});
 test('state scanner follows funding hubs within request budget and keeps programs conditional',async()=>{const source=stateModule.sourceForState('OH');let calls=0;const fake=async url=>{calls++;return url===source.business.url?'<main><a href="/funding">Funding</a></main>':'<main><a href="/equipment-grant">Equipment Grant</a></main>';};const result=await stateScan.scanState(source,'business',fake,now);assert.ok(calls<=3);assert.equal(result.records.length,1);const g=result.records[0];assert.deepEqual(g.states,['Ohio']);assert.equal(g.eligibilityVerified,false);assert.equal(g.amount,null);assert.equal(g.deadline,null);assert.equal(match(g,{...p,type:'Small business',state:'NY',keywords:'equipment'}).score,0);assert.ok(match(g,{...p,type:'Small business',state:'OH',keywords:'equipment'}).score<=65);});
 test('blocked state source reports browser review and creates no placeholder opportunity',async()=>{const result=await stateScan.scanState(stateModule.sourceForState('DE'),'aid',async()=>{throw Error('HTTP 403');},now);assert.equal(result.records.length,0);assert.equal(result.report.status,'Browser review');});
@@ -280,4 +281,68 @@ test('upcoming_deadlines lists open matched records within the window, soonest f
  // The owner check runs before any tools/call dispatch, including upcoming_deadlines.
  assert.ok(route.indexOf('if(!await isOwner())')>-1&&route.indexOf('if(!await isOwner())')<route.indexOf("if(name==='upcoming_deadlines')"));
  assert.match(route,/upcomingDeadlines\(await allGrants\(\),profiles,message\.params\?\.arguments\?\.days\)/);
+});
+
+const cityModule=await import(pathToFileURL(out+'/city-registry.mjs').href);
+const planModule=await import(pathToFileURL(out+'/research-plan.mjs').href);
+const {monitoredProfiles}=await import(pathToFileURL(`${out}/grants.mjs`).href);
+test('monitoredProfiles covers every U.S. profile regardless of alerts; alerts still gate notifications',()=>{
+ const profiles=[{...p,id:'on'},{...p,id:'off',alerts:false},{...p,id:'off-ca',alerts:false,state:'CA',country:'United States'},{...p,id:'abroad-off',alerts:false,country:'Canada',state:''},{...p,id:'abroad-on',country:'Canada',state:''}];
+ assert.deepEqual(monitoredProfiles(profiles).map(x=>x.id),['on','off','off-ca','abroad-on']);
+ assert.deepEqual(monitoredProfiles(undefined),[]);
+ const g={...seeds[3],states:[]};assert.deepEqual(profileMatches(g,monitoredProfiles(profiles)).map(m=>m.profileId).filter(id=>id==='off'),[]);
+ const discovery=readFileSync('lib/discovery.ts','utf8'),research=readFileSync('lib/state-research.ts','utf8'),refresh=readFileSync('app/api/refresh/route.ts','utf8');
+ assert.match(discovery,/const profiles=monitoredProfiles\(input\)/);assert.doesNotMatch(discovery,/input\.filter\(p=>p\.alerts\)/);
+ assert.match(research,/monitoredProfiles\(rows\.flatMap/);assert.doesNotMatch(refresh,/p\.alerts/);
+ assert.match(readFileSync('app/mcp/route.ts','utf8'),/name==='upcoming_deadlines'[^;]*;const profiles:Profile\[\]=[^;]*\.filter\(\(p:Profile\)=>p\.alerts\)/);
+});
+test('individual and freelancer profiles get state arts council tasks; every state has an arts route',()=>{
+ for(const s of stateModule.stateSources)assert.ok(new URL(s.arts.url),s.code);
+ const tasks=stateModule.statePlan([{...p,type:'Individual',state:'IL'},{...p,id:'f',type:'Freelancer',state:'IL'},{...p,id:'s',type:'Student',state:'IL'}]);
+ assert.deepEqual(tasks.map(t=>t.category).sort(),['aid','arts','business']);
+ const il=stateModule.sourceForState('IL');assert.equal(stateModule.evidenceHostAllowed(il,il.arts.url),true);
+ const g=stateScan.stateRecord(il,'arts',{url:'https://arts.illinois.gov/grants/individual',title:'Artists Fellowship Program',context:'Fellowships for individual artists.'},'https://arts.illinois.gov/grants',now);
+ assert.deepEqual(g.types,['Individual','Freelancer']);assert.equal(g.kind,'State grant');assert.ok(g.tags.includes('arts'));assert.equal(g.cities,undefined);
+ const c=stateScan.stateRecord(il,'business',{url:'https://www.chicago.gov/grant',title:'Chicago Small Business Improvement Fund',context:'Grants for small businesses.'},'https://www.chicago.gov/grant',now,{city:'Chicago'});
+ assert.deepEqual(c.cities,['Chicago']);assert.match(c.source,/^Chicago, Illinois/);
+});
+test('Wave 1 city hosts pass, lookalikes fail, and held hosts are not added',()=>{
+ const byId=id=>cityModule.cityById(id),st=code=>stateModule.sourceForState(code);
+ assert.deepEqual(cityModule.citySources.map(c=>c.id),['new-york-ny','los-angeles-ca','chicago-il','houston-tx','phoenix-az','philadelphia-pa','san-antonio-tx','san-diego-ca','dallas-tx','jacksonville-fl']);
+ for(const c of cityModule.citySources){assert.equal(c.wave,1);assert.ok(c.rank>=1&&c.rank<=10);assert.ok(st(c.stateCode));}
+ const ok=[['los-angeles-ca','CA',['lacity.gov','ewdd.lacity.gov','www.lacity.gov']],['chicago-il','IL',['chicago.gov','www.chicago.gov']],['houston-tx','TX',['houstontx.gov','www.houstontx.gov','houstonartsalliance.com','www.houstonartsalliance.com']],['phoenix-az','AZ',['phoenix.gov','www.phoenix.gov']],['philadelphia-pa','PA',['phila.gov','www.phila.gov','creativephl.org']],['san-diego-ca','CA',['sandiego.gov','www.sandiego.gov']],['dallas-tx','TX',['dallasecodev.org','www.dallasecodev.org','dallascityhall.com']],['jacksonville-fl','FL',['jacksonville.gov','www.jacksonville.gov']],['new-york-ny','NY',['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']]];
+ for(const [id,code,hosts] of ok)for(const host of hosts)assert.equal(cityModule.cityEvidenceHostAllowed(byId(id),st(code),`https://${host}/grant`),true,id+' '+host);
+ const bad=[['chicago-il','IL',['chicago.gov.evil.com','evilchicago.gov','chicago.gov.example.org','chicago.com']],['houston-tx','TX',['houstonartsalliance.com.evil.net','grants.houstonartsalliance.com','fakehoustonartsalliance.com']],['philadelphia-pa','PA',['creativephl.org.evil.com','sub.creativephl.org']],['dallas-tx','TX',['dallasecodev.org.evil.com','dallascityhall.com.example.net','sub.dallascityhall.com']],['los-angeles-ca','CA',['lacity.gov.evil.com','culturela.org','www.culturela.org']],['san-antonio-tx','TX',['sa.gov','www.sa.gov','sanantonio.gov']],['dallas-tx','TX',['fortworthtexas.gov','www.fortworthtexas.gov']],['houston-tx','TX',['sa.gov','fortworthtexas.gov']],['chicago-il','IL',['edc.nyc','nycedc.com','nyc.gov']]];
+ for(const [id,code,hosts] of bad)for(const host of hosts)assert.equal(cityModule.cityEvidenceHostAllowed(byId(id),st(code),`https://${host}/grant`),false,id+' '+host);
+ // State rules still apply inside a city check, and without a cityId nothing new is accepted at state level.
+ assert.equal(cityModule.cityEvidenceHostAllowed(byId('chicago-il'),st('IL'),st('IL').business.url),true);
+ for(const host of ['chicago.gov','houstonartsalliance.com','creativephl.org','dallasecodev.org','lacity.gov'])for(const code of ['IL','TX','PA','CA'])assert.equal(stateModule.evidenceHostAllowed(st(code),`https://${host}/grant`),false,code+' '+host);
+ const held=JSON.stringify(cityModule.citySources.map(c=>[c.govDomains,c.partnerHosts,c.sources]));for(const h of ['culturela.org','sa.gov','fortworth'])assert.ok(!held.includes(h),h);
+ const sa=byId('san-antonio-tx');assert.equal(sa.status,'pending verification');assert.deepEqual(cityModule.cityHosts(sa),[]);
+ assert.equal(cityModule.cityById('fort-worth-tx'),undefined);assert.deepEqual(st('NY').localHosts,['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']);
+});
+test('research plan covers states and Wave 1 cities with limit and rotation',()=>{
+ const profiles=[{...p,id:'il',type:'Individual',state:'IL',alerts:false},{...p,id:'tx',type:'Small business',state:'TX'}];const empty=new Map();const at=Date.parse('2026-10-23T13:00:00Z');
+ const def=planModule.planResearchTasks({profiles,reports:empty,research:empty,now:at});
+ assert.equal(def.limit,5);assert.equal(def.tasks.length,5);assert.equal(def.deferred,def.totalDue-5);
+ assert.deepEqual(def.tasks.slice(0,2).map(t=>t.taskId).sort(),['state-IL-arts','state-TX-business']);assert.ok(def.tasks.slice(2).every(t=>t.scope==='city'));
+ for(const t of def.tasks.filter(t=>t.scope==='state'))for(const k of ['state','code','category','source','fallback','localHosts','sourceStatus','lastResearch','interests','query','needsResearch'])assert.ok(k in t,k);
+ assert.equal(planModule.planResearchTasks({profiles,reports:empty,research:empty,now:at,limit:99}).limit,20);
+ assert.equal(planModule.planResearchTasks({profiles,reports:empty,research:empty,now:at,limit:0}).limit,5);
+ assert.equal(planModule.planResearchTasks({profiles,reports:empty,research:empty,now:at,limit:'7'}).limit,5);
+ const all=planModule.planResearchTasks({profiles,reports:empty,research:empty,now:at,limit:20});
+ const cities=all.tasks.filter(t=>t.scope==='city');assert.ok(cities.length>=9);assert.ok(cities.every(t=>t.revisitDays===7&&t.cityId&&t.localHosts.length));
+ assert.deepEqual(all.pendingCities.map(c=>c.cityId),['san-antonio-tx']);assert.ok(!all.tasks.some(t=>t.cityId==='san-antonio-tx'));
+ assert.ok(all.tasks.some(t=>t.taskId==='city-houston-tx-arts'));
+ // Researched tasks rotate out until their revisit interval passes, then come back.
+ const done=new Map(all.tasks.map(t=>[t.scope==='city'?planModule.cityResearchKey(t.cityId,t.category):planModule.stateResearchKey(t.code,t.category),{checkedAt:new Date(at-3600000).toISOString()}]));
+ const later=planModule.planResearchTasks({profiles,reports:empty,research:done,now:at,limit:20});assert.equal(later.totalDue,0);
+ const day2=planModule.planResearchTasks({profiles,reports:empty,research:done,now:at+2*86400000,limit:20});assert.ok(day2.tasks.length>0);assert.ok(day2.tasks.every(t=>t.scope==='state'));
+ const week=planModule.planResearchTasks({profiles,reports:empty,research:done,now:at+7*86400000,limit:20});assert.ok(week.tasks.some(t=>t.scope==='city'));
+ // Partial completion: the next call returns the tasks that were deferred, not the ones just finished.
+ const first=def.tasks.map(t=>t.taskId),half=new Map(def.tasks.map(t=>[t.scope==='city'?planModule.cityResearchKey(t.cityId,t.category):planModule.stateResearchKey(t.code,t.category),{checkedAt:new Date(at).toISOString()}]));
+ const next=planModule.planResearchTasks({profiles,reports:empty,research:half,now:at+60000});assert.ok(next.tasks.length>0);assert.ok(next.tasks.every(t=>!first.includes(t.taskId)));
+ assert.equal(planModule.cityResearchKey('chicago-il','arts'),'research-city-chicago-il-arts');assert.equal(planModule.stateResearchKey('IL','arts'),'research-IL-arts');
+ const route=readFileSync('app/mcp/route.ts','utf8');assert.match(route,/limit:\{type:'integer',minimum:1,maximum:RESEARCH_LIMIT_MAX,default:RESEARCH_LIMIT_DEFAULT\}/);assert.match(route,/stateResearchPlan\(message\.params\?\.arguments\)/);assert.match(route,/cityId:\{type:'string',enum:researchCityIds\}/);
+ const research=readFileSync('lib/state-research.ts','utf8');assert.match(research,/city\?cityEvidenceHostAllowed\(city,state,sourceUrl\):evidenceHostAllowed\(state,sourceUrl\)/);
 });
