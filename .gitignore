@@ -57,3 +57,6 @@ next-env.d.ts
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Local dev secrets for Google sign-in (never commit).
+.dev.vars*
