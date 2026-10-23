@@ -3,11 +3,11 @@
  * Both values are public (not secrets). Leave a value empty and nothing renders.
  */
 
-/** Cloudflare Web Analytics site token. Empty = no beacon loads. */
-export const CF_ANALYTICS_TOKEN = "";
+/** Cloudflare Web Analytics site token for icangetgrants.com (public). Empty = no beacon loads. */
+export const CF_ANALYTICS_TOKEN = "641ab131ef6442d5911c1881c5fe7d65";
 
-/** Google Search Console URL-prefix verification: the content value of the google-site-verification meta tag. Empty = no tag. */
-export const GOOGLE_SITE_VERIFICATION = "";
+/** Google Search Console URL-prefix verification for https://icangetgrants.com/: the content value of the google-site-verification meta tag. Empty = no tag. Keep it after verifying (Google re-checks). */
+export const GOOGLE_SITE_VERIFICATION = "u3x-wOrf_imKdhDSSEKkmc67G5m1Cddn1F2xHGLnKDo";
 
 export const CF_BEACON_SRC = "https://static.cloudflareinsights.com/beacon.min.js";
 

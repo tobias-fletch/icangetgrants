@@ -10,11 +10,20 @@ import {
   validSiteVerification,
 } from "../lib/analytics.ts";
 
-test("nothing renders while no token or verification value is configured", () => {
-  assert.equal(CF_ANALYTICS_TOKEN, "");
-  assert.equal(GOOGLE_SITE_VERIFICATION, "");
-  assert.equal(cloudflareBeaconAttributes(), null);
-  assert.equal(validSiteVerification(GOOGLE_SITE_VERIFICATION), null);
+test("the icangetgrants.com Cloudflare token is configured, so the cookieless beacon ships", () => {
+  assert.equal(CF_ANALYTICS_TOKEN, "641ab131ef6442d5911c1881c5fe7d65");
+  assert.deepEqual(cloudflareBeaconAttributes(), {
+    defer: true,
+    src: "https://static.cloudflareinsights.com/beacon.min.js",
+    "data-cf-beacon": '{"token":"641ab131ef6442d5911c1881c5fe7d65"}',
+  });
+  assert.equal(cloudflareBeaconAttributes(""), null);
+});
+
+test("the icangetgrants.com Search Console verification value is configured and valid", () => {
+  assert.equal(GOOGLE_SITE_VERIFICATION, "u3x-wOrf_imKdhDSSEKkmc67G5m1Cddn1F2xHGLnKDo");
+  assert.equal(validSiteVerification(GOOGLE_SITE_VERIFICATION), GOOGLE_SITE_VERIFICATION);
+  assert.equal(validSiteVerification(""), null);
 });
 
 test("malformed values are rejected", () => {
@@ -33,7 +42,8 @@ test("a configured token produces the cookieless Cloudflare beacon", () => {
 });
 
 test("the privacy-page analytics line ships only with a valid token", () => {
-  assert.equal(analyticsPrivacyLine(), null);
+  assert.equal(analyticsPrivacyLine(), ANALYTICS_PRIVACY_LINE);
+  assert.equal(analyticsPrivacyLine(""), null);
   assert.equal(analyticsPrivacyLine("short"), null);
   assert.equal(analyticsPrivacyLine("0123456789abcdef0123456789abcdef"), ANALYTICS_PRIVACY_LINE);
   assert.equal(
@@ -43,7 +53,8 @@ test("the privacy-page analytics line ships only with a valid token", () => {
 });
 
 test("the privacy page drops 'or analytics' only when the beacon ships", () => {
-  assert.equal(excludedLibrariesPhrase(), "an advertising or analytics library");
+  assert.equal(excludedLibrariesPhrase(), "an advertising library");
+  assert.equal(excludedLibrariesPhrase(""), "an advertising or analytics library");
   assert.equal(excludedLibrariesPhrase("short"), "an advertising or analytics library");
   assert.equal(excludedLibrariesPhrase('abc"><script>'), "an advertising or analytics library");
   assert.equal(excludedLibrariesPhrase("0123456789abcdef0123456789abcdef"), "an advertising library");
