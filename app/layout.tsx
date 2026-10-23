@@ -1,9 +1,35 @@
 import type { Metadata } from "next";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_ORIGIN, SITE_TITLE } from "@/lib/site";
 import "./globals.css";
 
+const socialImage = {
+  url: "/og.png",
+  width: 1200,
+  height: 630,
+  alt: `${SITE_NAME} — Find funding that fits you`,
+};
+
 export const metadata: Metadata = {
-  title: "I Can Get Grants — Find funding that fits you",
-  description: "Search grants, scholarships and student aid for free during beta. No account required to search; sign in to save your funding workspace.",
+  metadataBase: new URL(SITE_ORIGIN),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    siteName: SITE_NAME,
+    type: "website",
+    images: [socialImage],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [socialImage],
+  },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
