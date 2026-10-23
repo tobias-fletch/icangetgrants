@@ -54,7 +54,7 @@ footer{font-size:11px;color:#89969f;margin-top:34px;padding:22px 0;line-height:1
 /* /grants SEO pages (mobile first) */
 .seo-page{max-width:960px;margin:0 auto;padding:22px 16px 40px}
 .seo-top{flex-wrap:wrap}
-.seo-nav{align-items:center}
+.seo-nav{flex-direction:row;flex-wrap:wrap;align-items:center;gap:0 18px}
 .seo-nav a{display:inline-flex;align-items:center;min-height:44px;text-decoration:underline;text-underline-offset:2px;color:#087d68;font-weight:650}
 .seo-main{max-width:none;padding:0}
 .seo-crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:4px;padding:0;margin:0 0 14px;font-size:13px;color:#66747c}
@@ -67,7 +67,7 @@ footer{font-size:11px;color:#89969f;margin-top:34px;padding:22px 0;line-height:1
 .seo-thin{background:#fff4d6;border:1px solid #e2c56a;color:#5c3b09;border-radius:10px;padding:12px 14px}
 .save-cta{display:flex;flex-direction:column;gap:6px;background:#edf6f2;border:1px solid #c9e3d8;border-radius:14px;padding:16px;margin:18px 0 24px}
 .save-cta p{margin:0;font-size:13px;line-height:1.5;color:#1f4d42}
-.save-cta-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;font-size:14px;text-align:center;text-decoration:none;align-self:stretch}
+.save-cta-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;font-size:14px;text-align:center;text-decoration:none;align-self:stretch;white-space:normal;line-height:1.3;height:auto}
 .save-cta-button:focus-visible,.seo-page a:focus-visible{outline:3px solid #f2b705;outline-offset:2px}
 .save-cta.compact{background:none;border:0;padding:0;margin:0}
 .save-cta-home-search{margin-top:-14px}

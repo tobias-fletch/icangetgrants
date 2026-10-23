@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const out = resolve('.sites-runtime/seo-tests'); mkdirSync(out, { recursive: true });
-for (const name of ['source-parsers', 'grants', 'listing', 'site', 'access', 'seo-taxonomy', 'seo-index', 'seo-store', 'signin-url', 'save-profile']) {
+for (const name of ['source-parsers', 'grants', 'listing', 'site', 'access', 'state-registry', 'workspace-privacy', 'seo-taxonomy', 'seo-index', 'seo-store', 'signin-url', 'save-profile']) {
   const js = ts.transpileModule(readFileSync(`lib/${name}.ts`, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
     .replace(/from ['"](\.\/[^'"]+)['"]/g, "from '$1.mjs'");
   writeFileSync(`${out}/${name}.mjs`, js);
@@ -232,4 +232,12 @@ test('favicon.ico exists and CLS loading screen is gone', () => {
   const ico = readFileSync('public/favicon.ico');
   assert.equal(ico.readUInt16LE(2), 1); // ICO type
   assert.throws(() => statSync('app/loading.tsx'));
+});
+
+test('public listing links drop CareerOneStop search context (same as visitor catalog, PR #9)', () => {
+  const g = { ...seeds.find(x => x.kind === 'Scholarship') || seeds[0], id: 'cos-test', kind: 'Scholarship', status: 'Open', deadline: null,
+    url: 'https://www.careeronestop.org/Toolkit/Training/find-scholarships.aspx?scholarshipId=123&keyword=private+interest&georestrictionfilter=LA&pagesize=100&curpage=1' };
+  const idx = S.buildSeoIndex([g], { checkedAt: '2026-10-23T13:00:00Z' }, new Date('2026-10-23T14:00:00Z'));
+  const u = idx.listings['cos-test'].url;
+  assert.equal(u, 'https://www.careeronestop.org/Toolkit/Training/find-scholarships.aspx?scholarshipId=123');
 });

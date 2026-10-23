@@ -4,6 +4,7 @@
 import { isOpenGrant, effectiveDeadline, deadlineView, formatLastUpdatedEt, refreshFreshness } from './listing';
 import { seeds, type Grant } from './grants';
 import { SITE_NAME, SITE_ORIGIN } from './site';
+import { stripSearchContext } from './workspace-privacy';
 import {
   SEO_CATEGORIES, CATEGORY_BY_SLUG, STATE_BY_SLUG, SEO_THRESHOLD, SEO_JACCARD_CUTOFF, SEO_MAX_ITEMS,
   SEO_NATIONWIDE_SAMPLE, SEO_HUB_SOONEST, SEO_REVIEW_HOLD, categoriesFor, jaccard, seoPath, stateSlug, resolveSeoRoute,
@@ -64,7 +65,7 @@ export function mergeWithSeeds(records: Grant[]): Grant[] {
 
 export function compactListing(g: Grant): SeoListing {
   const l: SeoListing = {
-    id: g.id, title: decodeEntities(g.title), funder: decodeEntities(g.funder || ''), url: g.url,
+    id: g.id, title: decodeEntities(g.title), funder: decodeEntities(g.funder || ''), url: stripSearchContext(g.url),
     amount: typeof g.amount === 'number' && g.amount > 0 ? g.amount : null,
     deadline: g.deadline || null, kind: g.kind, states: g.states || [], nationwide: isNationwide(g),
     checked: g.checked, cats: categoriesFor(g),
