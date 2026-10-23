@@ -26,3 +26,11 @@ export function cloudflareBeaconAttributes(value: string | null | undefined = CF
   const token = validAnalyticsToken(value);
   return token ? { defer: true, src: CF_BEACON_SRC, "data-cf-beacon": JSON.stringify({ token }) } : null;
 }
+
+export const ANALYTICS_PRIVACY_LINE =
+  "We count visits with Cloudflare Web Analytics, which uses no cookies and doesn’t track you across sites.";
+
+/** Privacy-page sentence, shown only when a valid token is configured (so it ships with the token). */
+export function analyticsPrivacyLine(value: string | null | undefined = CF_ANALYTICS_TOKEN): string | null {
+  return validAnalyticsToken(value) ? ANALYTICS_PRIVACY_LINE : null;
+}

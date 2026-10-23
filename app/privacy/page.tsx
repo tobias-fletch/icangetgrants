@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Confirm, LegalShell } from "@/components/legal-page";
+import { analyticsPrivacyLine } from "@/lib/analytics";
 
 export const metadata: Metadata = {
   title: "Privacy policy (draft) — I Can Get Grants",
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
+  const analyticsLine = analyticsPrivacyLine();
   return (
     <LegalShell>
       <h1>Privacy policy</h1>
@@ -228,6 +230,7 @@ export default function PrivacyPage() {
         library, and it does not sell workspace records. It also does not
         write its own request log of IP addresses.
       </p>
+      {analyticsLine ? <p>{analyticsLine}</p> : null}
       <p>
         <Confirm>
           where the D1 database is located; whether Cloudflare or OpenAI Sites

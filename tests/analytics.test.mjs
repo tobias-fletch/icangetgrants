@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   CF_ANALYTICS_TOKEN,
   GOOGLE_SITE_VERIFICATION,
+  ANALYTICS_PRIVACY_LINE,
+  analyticsPrivacyLine,
   cloudflareBeaconAttributes,
   validSiteVerification,
 } from "../lib/analytics.ts";
@@ -27,4 +29,14 @@ test("a configured token produces the cookieless Cloudflare beacon", () => {
     "data-cf-beacon": '{"token":"0123456789abcdef0123456789abcdef"}',
   });
   assert.equal(validSiteVerification("AbC-123_xyzAbC-123_xyz"), "AbC-123_xyzAbC-123_xyz");
+});
+
+test("the privacy-page analytics line ships only with a valid token", () => {
+  assert.equal(analyticsPrivacyLine(), null);
+  assert.equal(analyticsPrivacyLine("short"), null);
+  assert.equal(analyticsPrivacyLine("0123456789abcdef0123456789abcdef"), ANALYTICS_PRIVACY_LINE);
+  assert.equal(
+    ANALYTICS_PRIVACY_LINE,
+    "We count visits with Cloudflare Web Analytics, which uses no cookies and doesn’t track you across sites.",
+  );
 });
