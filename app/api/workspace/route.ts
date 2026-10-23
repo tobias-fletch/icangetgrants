@@ -1,11 +1,10 @@
 import { empty } from '@/lib/grants';
-import { publicRefresh } from '@/lib/access';
 import { countryName, stateName } from '@/lib/source-parsers';
 import { sourceForState } from '@/lib/state-registry';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
-import { getWorkspace, saveWorkspace, allGrants } from '@/lib/discovery';
+import { getWorkspace, saveWorkspace } from '@/lib/discovery';
+import { loadCatalog } from '@/lib/catalog';
 import { getDb } from '@/db';
 import { jobs } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-export async function GET(){const u=await getChatGPTUser();const state=u?await getWorkspace(u.userId):empty;const job=await getDb().select().from(jobs).where(eq(jobs.id,'last-refresh'));const stateCoverage=(await getDb().select().from(jobs)).filter(r=>r.id.startsWith('state-')).map(r=>JSON.parse(r.data));return Response.json({state,stateCoverage,grants:await allGrants(),refresh:publicRefresh(job[0]?JSON.parse(job[0].data):null),authenticated:!!u,name:u?.fullName|| (u?'Your workspace':'Guest search')},{headers:{'Cache-Control':'private, no-store'}});}
+export async function GET(){const u=await getChatGPTUser();const state=u?await getWorkspace(u.userId):empty;const loaded=await loadCatalog();const stateCoverage=(await getDb().select().from(jobs)).filter(r=>r.id.startsWith('state-')).map(r=>JSON.parse(r.data));return Response.json({state,stateCoverage,grants:loaded.grants,refresh:loaded.refresh,catalogError:loaded.error,catalogSource:loaded.source,authenticated:!!u,name:u?.fullName|| (u?'Your workspace':'Guest search')},{headers:{'Cache-Control':'private, no-store'}});}
 export async function PUT(request:Request){const u=await getChatGPTUser();if(!u)return Response.json({error:'Sign in required'},{status:401});if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Invalid origin'},{status:403});const raw=await request.text();if(raw.length>150000)return Response.json({error:'Workspace too large'},{status:413});let data;try{data=JSON.parse(raw);}catch{return Response.json({error:'Invalid JSON'},{status:400});}if(!Array.isArray(data.profiles)||data.profiles.length>50||!Array.isArray(data.saved)||data.saved.length>500||data.profiles.some((p:any)=>typeof p.id!=='string'||typeof p.name!=='string'||!['Student','Individual','Freelancer','Small business','Nonprofit'].includes(p.type)||typeof p.country!=='string'||typeof p.state!=='string'||typeof p.keywords!=='string'||typeof p.alerts!=='boolean'))return Response.json({error:'Invalid workspace data'},{status:400});for(const p of data.profiles){p.country=countryName(p.country);p.state=stateName(p.state);if(p.country==='United States'&&!sourceForState(p.state)&&p.state!=='District of Columbia')return Response.json({error:'Choose a valid U.S. state name or abbreviation.'},{status:400});}await saveWorkspace(u.userId,data);return Response.json({ok:true});}

@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 const out=resolve('.sites-runtime/tests');mkdirSync(out,{recursive:true});
-for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
+for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const parser=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
 const {match,seeds,newOpportunityItems,NEW_ITEM_LIMIT,newItemsSchemaProperties}=await import(pathToFileURL(`${out}/grants.mjs`).href);
 const now='2026-10-18T21:00:00Z';
@@ -91,3 +91,77 @@ const alertGrant={...seeds[3],id:'alert-test',states:['New York'],deadline:null,
 test('inbox includes all matching monitored profiles and excludes paused or wrong-state profiles',()=>{const profiles=[{...p,id:'one',state:'NY'},{...p,id:'two',state:'New York'},{...p,id:'paused',alerts:false},{...p,id:'other',state:'LA'}];const inbox=notifications.inboxMatches([alertGrant],profiles,'','2026-10-19T16:00:00Z');assert.equal(inbox.length,1);assert.deepEqual(inbox[0].profiles.map(f=>f.p.id),['one','two']);assert.equal(notifications.inboxMatches([alertGrant],[{...p,alerts:false}],'').length,0);});
 test('inbox is scoped to provided account profiles and excludes closed, old and reviewed records',()=>{assert.equal(notifications.inboxMatches([alertGrant],[{...p,state:'LA'}],'').length,0);assert.equal(notifications.inboxMatches([alertGrant],[p],'2026-10-19T15:00:00.000Z').length,0);assert.equal(notifications.inboxMatches([{...alertGrant,status:'Closed'}],[p],'').length,0);assert.equal(notifications.inboxMatches([{...alertGrant,discovered:'2026-10-18'}],[p],'').length,0);assert.equal(notifications.inboxMatches([{...alertGrant,deadline:'2000-01-01'}],[p],'').length,0);});
 test('review watermark covers visible inbox records without hiding later arrivals',()=>{const items=notifications.inboxMatches([alertGrant],[p],'');const seen=notifications.reviewedThrough(items,'');assert.equal(seen,alertGrant.discovered);assert.equal(notifications.inboxMatches([alertGrant,{...alertGrant,id:'later',discovered:'2026-10-19T15:01:00.000Z'}],[p],seen).length,1);assert.equal(notifications.reviewedThrough([],seen),seen);});
+
+const listing=await import(pathToFileURL(out+'/listing.mjs').href);
+const deadlineNow=new Date('2026-10-23T16:00:00.000Z');
+const refreshAt='2026-10-23T13:01:00.000Z';
+function sample(partial){return {id:partial.id||'sample',title:'',funder:'',description:'',types:[],countries:[],tags:[],deadline:null,requirements:[],states:[],...partial};}
+test('deadlines more than five years out display and sort as no fixed deadline without changing the record',()=>{const stored={deadline:'2076-01-15',deadlineLabel:'2076-01-15'};assert.equal(listing.isFarFutureDeadline('2031-10-23',deadlineNow),false);assert.equal(listing.isFarFutureDeadline('2031-10-24',deadlineNow),true);assert.equal(listing.isFarFutureDeadline('2044-06-01',deadlineNow),true);assert.equal(listing.isFarFutureDeadline('2076-01-15',deadlineNow),true);assert.equal(listing.effectiveDeadline('2044-06-01',deadlineNow),null);assert.equal(listing.effectiveDeadline('2026-11-01',deadlineNow),'2026-11-01');assert.equal(listing.effectiveDeadline(null,deadlineNow),null);assert.equal(listing.deadlineView(stored,deadlineNow).text,'No fixed deadline');assert.equal(listing.deadlineView(stored,deadlineNow).iso,null);assert.equal(stored.deadline,'2076-01-15');assert.equal(listing.deadlineSortKey('2076-01-01',deadlineNow),listing.deadlineSortKey(null,deadlineNow));assert.ok(listing.deadlineSortKey('2026-12-01',deadlineNow)<listing.deadlineSortKey('2044-01-01',deadlineNow));assert.equal(listing.deadlineView({deadline:null,deadlineLabel:'Rolling'},deadlineNow).text,'Rolling');assert.equal(listing.isOpenGrant({status:'Open',deadline:'2044-01-01'},deadlineNow),true);assert.equal(listing.isOpenGrant({status:'Open',deadline:'2020-01-01'},deadlineNow),false);assert.equal(listing.isOpenGrant({status:'Closed',deadline:null},deadlineNow),false);assert.equal(listing.isOpenGrant({deadline:null},deadlineNow),true);});
+test('catalog refresh is stale only after 26 hours and labels Eastern Time',()=>{const checked=Date.parse(refreshAt);assert.equal(listing.formatLastUpdatedEt(refreshAt),'Oct 23, 2026, 9:01 AM ET');assert.equal(listing.isRefreshStale(refreshAt,checked+26*60*60*1000),false);assert.equal(listing.isRefreshStale(refreshAt,checked+26*60*60*1000+1),true);assert.equal(listing.isRefreshStale(refreshAt,checked+25*60*60*1000),false);assert.equal(listing.isRefreshStale(null,checked),true);assert.equal(listing.isRefreshStale('not-a-date',checked),true);assert.equal(listing.formatLastUpdatedEt('nope'),'unavailable');});
+test('search matches whole words, every term, and related terms, then ranks title matches first',()=>{const grants=[
+ sample({id:'bakery-title',title:'Neighborhood bakery equipment'}),
+ sample({id:'food-desc',title:'Kitchen award',description:'Support for food business owners'}),
+ sample({id:'bridge',title:'Bridge repair'}),
+ sample({id:'startup',title:'Main Street',tags:['microenterprise']}),
+ sample({id:'sba',funder:'SBA Office of Capital Access',title:'Working capital'}),
+ sample({id:'business-hours',description:'Ordinary business hours only'}),
+ sample({id:'nyc-state',title:'Storefront improvement',states:['New York']}),
+ sample({id:'nyc-title',title:'NYC storefront grant'}),
+ sample({id:'many',title:'Many companies and anyone nearby'}),
+ sample({id:'women',requirements:['Women-owned firms may apply'],title:'Growth award'}),
+ sample({id:'female',description:'Open to female entrepreneurs'}),
+ sample({id:'founder',title:'Entrepreneur workshop'}),
+ sample({id:'stem',title:'STEM education fellowship'}),
+ sample({id:'tech-word',title:'Tech apprenticeship'}),
+ sample({id:'biotech',title:'Biotechnology transfer'}),
+ sample({id:'art-word',title:'The art of bread'}),
+ sample({id:'start',title:'Start chart party'}),
+ sample({id:'creative',tags:['creative'],title:'Studio practice'}),
+ sample({id:'music',title:'Community music grant'}),
+ sample({id:'theater',description:'Support for theater and dance companies'}),
+ sample({id:'visual',tags:['visual arts'],title:'Exhibition fund'}),
+ sample({id:'both',title:'Bakery technology program'}),
+ sample({id:'food-only',title:'Food hall'}),
+ sample({id:'tech-only',title:'Innovation lab'}),
+];
+ const ids=query=>listing.searchGrants(grants,query).map(hit=>hit.grant.id);
+ assert.deepEqual(ids(''),grants.map(g=>g.id));
+ assert.deepEqual(ids('   '),grants.map(g=>g.id));
+ const foodIds=['bakery-title','food-desc','both','food-only'].sort();
+ assert.deepEqual(ids('bakery').sort(),foodIds);
+ assert.deepEqual(ids('food').sort(),foodIds);
+ assert.equal(ids('art').includes('start'),false);
+ assert.equal(ids('arts').includes('art-word'),true);
+ assert.equal(ids('arts').includes('creative'),false);
+ assert.equal(ids('arts').includes('music'),true);
+ assert.equal(ids('arts').includes('theater'),true);
+ assert.equal(ids('visual arts').includes('visual'),true);
+ assert.equal(ids('artist').includes('music'),true);
+ assert.equal(listing.searchGrants([sample({id:'writers',tags:['writing','creative','literature'],title:'Poetry prize'})],'arts').length,0);
+ assert.equal(ids('technology').includes('biotech'),false);
+ assert.equal(ids('TECHNOLOGY').includes('stem'),true);
+ assert.equal(ids('technology').includes('tech-word'),true);
+ assert.deepEqual(ids('NYC').sort(),['nyc-state','nyc-title'].sort());
+ assert.equal(ids('New York City').includes('many'),false);
+ assert.equal(ids('nyc').includes('nyc-title'),true);
+ assert.equal(ids('small business').includes('startup'),true);
+ assert.equal(ids('small business').includes('sba'),true);
+ assert.equal(ids('small business').includes('business-hours'),false);
+ assert.equal(ids('startups').includes('startup'),true);
+ assert.equal(ids('women-owned').includes('women'),true);
+ assert.equal(ids('women-owned').includes('female'),true);
+ assert.equal(ids('women-owned').includes('founder'),false);
+ assert.equal(listing.searchGrants([sample({id:'typed',title:'Marine education',types:['Small business','Nonprofit']})],'small business').length,0);
+ assert.equal(listing.searchGrants([sample({id:'req',title:'Marine education',requirements:['Eligible small businesses may apply']})],'small business').length,1);
+ assert.deepEqual(ids('bakery technology'),['both']);
+ const ranked=listing.searchGrants([
+  sample({id:'desc',title:'Kitchen award',description:'Support for food business owners'}),
+  sample({id:'title',title:'Neighborhood bakery equipment'}),
+ ],'bakery');
+ assert.deepEqual(ranked.map(hit=>hit.grant.id),['title','desc']);
+ assert.ok(ranked[0].relevance>ranked[1].relevance);
+ assert.equal(listing.relevanceScore(ranked[0].grant,'bakery'),ranked[0].relevance);
+ const frozen=sample({id:'frozen',title:'Future prize',deadline:'2044-01-01'});
+ listing.searchGrants([frozen],'prize');
+ assert.equal(frozen.deadline,'2044-01-01');
+});
