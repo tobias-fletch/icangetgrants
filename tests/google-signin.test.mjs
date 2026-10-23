@@ -10,7 +10,7 @@ import ts from 'typescript';
 
 const out = resolve('.sites-runtime/tests-google');
 mkdirSync(out, { recursive: true });
-for (const name of ['session', 'google-auth', 'current-user', 'google-links', 'access']) {
+for (const name of ['session', 'google-auth', 'current-user', 'workspace-merge', 'google-links', 'access']) {
   const source = readFileSync(`lib/${name}.ts`, 'utf8');
   const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText.replace(/from '(\.\/[^']+)'/g, "from '$1.mjs'");
   writeFileSync(`${out}/${name}.mjs`, js);
@@ -20,6 +20,7 @@ const session = await load('session');
 const g = await load('google-auth');
 const cu = await load('current-user');
 const { d1LinkStore } = await load('google-links');
+const wm = await load('workspace-merge');
 const access = await load('access');
 
 const CLIENT_ID = 'test-client-id.apps.googleusercontent.com';
@@ -353,6 +354,7 @@ test('link: requires ChatGPT at start and the same ChatGPT account at callback; 
   await links2.link('first-sub', 'chatgpt-user-1');
   assert.equal((await linkFlow(links2, { sub: 'second-sub' })).status, 409, 'workspace already has a different Google account');
   const racing = { ...memoryLinks(), async link() { throw new Error('Link conflict'); } };
+  for (const [reason, status] of [['busy', 409], ['too_large', 409], ['unavailable', 503]]) assert.equal((await linkFlow({ ...memoryLinks(), async link() { throw Object.assign(new Error('x'), { reason }); } })).status, status, reason);
   assert.equal((await linkFlow(racing)).status, 409, 'a race at insert is a 409, not a 500');
 });
 
@@ -368,25 +370,172 @@ test('unlink: POST, same origin, ChatGPT only', async () => {
   assert.equal(links.bySub.size, 0);
 });
 
-test('D1 link store enforces one-to-one links with the real migration SQL', async (t) => {
-  let sqlite = null; try { sqlite = await import('node:sqlite'); } catch {}
-  if (!sqlite) return t.skip('node:sqlite unavailable');
+// ---------- D1 (node:sqlite running the real migrations) ----------
+let sqlite = null; try { sqlite = await import('node:sqlite'); } catch {}
+/** A small D1 stand-in over node:sqlite. batch() is one transaction, like D1; failOn makes a matching statement throw. */
+function sqliteD1({ failOn = null, beforeBatch = null } = {}) {
   const db = new sqlite.DatabaseSync(':memory:');
   for (const f of readdirSync('drizzle').filter((f) => f.endsWith('.sql')).sort()) for (const stmt of readFileSync(join('drizzle', f), 'utf8').split('--> statement-breakpoint')) if (stmt.trim()) db.exec(stmt);
-  const d1 = { prepare(sql) { const s = db.prepare(sql); let args = []; const api = { bind(...a) { args = a; return api; }, async first() { return s.get(...args) ?? null; }, async run() { const r = s.run(...args); return { meta: { changes: Number(r.changes) } }; } }; return api; } };
+  const d1 = {
+    raw: db,
+    prepare(sql) {
+      let args = [];
+      const exec = () => { if (failOn && failOn.test(sql)) throw new Error('D1_ERROR: injected failure'); const r = db.prepare(sql).run(...args); return { meta: { changes: Number(r.changes) } }; };
+      const api = { sql, bind(...a) { args = a; return api; }, async first() { return db.prepare(sql).get(...args) ?? null; }, async run() { return exec(); }, exec };
+      return api;
+    },
+    async batch(stmts) {
+      if (beforeBatch) await beforeBatch(d1);
+      db.exec('BEGIN');
+      try { const out = stmts.map((st) => st.exec()); db.exec('COMMIT'); return out; } catch (e) { db.exec('ROLLBACK'); throw e; }
+    },
+  };
+  return d1;
+}
+const putWs = (d1, owner, ws) => d1.raw.prepare('INSERT INTO workspaces (owner, data) VALUES (?, ?) ON CONFLICT(owner) DO UPDATE SET data = excluded.data').run(owner, JSON.stringify(ws));
+const getWs = (d1, owner) => { const r = d1.raw.prepare('SELECT data FROM workspaces WHERE owner = ?').get(owner); return r ? JSON.parse(r.data) : null; };
+const linkRows = (d1) => d1.raw.prepare('SELECT google_sub, chatgpt_user_id FROM google_links').all().map((r) => ({ ...r }));
+const prof = (id, name, extra = {}) => ({ id, name, type: 'Student', country: 'United States', state: 'New York', keywords: 'design', goal: 5000, education: '', details: '', alerts: true, ...extra });
+const sv = (profileId, grantId, extra = {}) => ({ profileId, grantId, status: 'Considering', notes: '', ...extra });
+
+test('D1 link store enforces one-to-one links with the real migration SQL', async (t) => {
+  if (!sqlite) return t.skip('node:sqlite unavailable');
+  const d1 = sqliteD1();
   const store = d1LinkStore(d1);
   await store.link('sub-a', 'chatgpt-a');
   assert.equal(await store.chatgptIdForSub('sub-a'), 'chatgpt-a');
   assert.equal(await store.subForChatGPT('chatgpt-a'), 'sub-a');
-  await store.link('sub-a', 'chatgpt-a');
-  await assert.rejects(store.link('sub-a', 'chatgpt-b'), /Link conflict/);
-  await assert.rejects(store.link('sub-b', 'chatgpt-a'), /Link conflict/);
+  assert.deepEqual(await store.link('sub-a', 'chatgpt-a'), { merged: false, profilesAdded: 0, savedAdded: 0 }, 'relinking the same pair is a no-op');
+  await assert.rejects(store.link('sub-a', 'chatgpt-b'), (e) => e.reason === 'conflict');
+  await assert.rejects(store.link('sub-b', 'chatgpt-a'), (e) => e.reason === 'conflict');
   assert.equal(await store.unlink('chatgpt-a'), true);
   assert.equal(await store.unlink('chatgpt-a'), false);
   assert.equal(await store.chatgptIdForSub('sub-a'), null);
   const none = d1LinkStore(undefined);
   assert.equal(await none.chatgptIdForSub('x'), null);
+  await assert.rejects(none.link('x', 'y'), (e) => e.reason === 'unavailable');
 });
+
+// ---------- merge on link ----------
+test('merge rules: dedupe by id, identical profiles keep the ChatGPT one, saved/seen union, ChatGPT preferences win', () => {
+  const chatgpt = { profiles: [prof('p1', 'Studio'), prof('p2', 'Kid', { keywords: 'Robotics, art' })], saved: [sv('p1', 'g1', { status: 'Submitted', notes: 'mine' }), sv('p2', 'g2')], seen: '2026-10-01T00:00:00.000Z', theme: 'light' };
+  const google = {
+    profiles: [prof('p1', 'Studio renamed'), prof('px', '  kid ', { keywords: 'robotics,  ART'.replace(',  ', ', '), alerts: false }), prof('p3', 'New biz', { type: 'Small business' })],
+    saved: [sv('p1', 'g1', { status: 'Preparing', notes: 'theirs' }), sv('px', 'g2'), sv('px', 'g9'), sv('p3', 'g3')],
+    seen: '2026-10-20T00:00:00.000Z', theme: 'dark', digest: 'weekly',
+  };
+  const { merged, profilesAdded, profilesMatched, savedAdded } = wm.mergeWorkspaces(chatgpt, google);
+  assert.deepEqual(merged.profiles.map((p) => [p.id, p.name]), [['p1', 'Studio'], ['p2', 'Kid'], ['p3', 'New biz']], 'same id keeps ChatGPT; identical content (px) keeps ChatGPT p2; new appended');
+  assert.equal(profilesAdded, 1); assert.equal(profilesMatched, 2);
+  assert.deepEqual(merged.saved.map((s) => [s.profileId, s.grantId, s.status]), [['p1', 'g1', 'Submitted'], ['p2', 'g2', 'Considering'], ['p2', 'g9', 'Considering'], ['p3', 'g3', 'Considering']], 'saved union; px items move to p2; ChatGPT entry wins');
+  assert.equal(merged.saved[0].notes, 'mine');
+  assert.equal(savedAdded, 2);
+  assert.equal(merged.seen, '2026-10-20T00:00:00.000Z', 'seen: union of what was reviewed = later time');
+  assert.equal(merged.theme, 'light', 'ChatGPT preference wins'); assert.equal(merged.digest, 'weekly', 'non-conflicting preference kept');
+  assert.equal(wm.mergeWorkspaces({ ...chatgpt, seen: '2026-10-25T00:00:00.000Z' }, google).merged.seen, '2026-10-25T00:00:00.000Z');
+  assert.equal(wm.mergeWorkspaces({ ...chatgpt, seen: '' }, google).merged.seen, google.seen);
+});
+
+test('merge into an empty or missing ChatGPT workspace keeps all Google data; limits are enforced', () => {
+  const google = { profiles: [prof('a', 'A'), prof('b', 'B')], saved: [sv('a', 'g1')], seen: '2026-10-20T00:00:00.000Z' };
+  for (const base of [null, { profiles: [], saved: [], seen: '' }]) {
+    const { merged } = wm.mergeWorkspaces(base, google);
+    assert.deepEqual(merged, google);
+  }
+  const many = { profiles: Array.from({ length: 30 }, (_, i) => prof('c' + i, 'C' + i, { keywords: 'k' + i })), saved: [], seen: '' };
+  const more = { profiles: Array.from({ length: 30 }, (_, i) => prof('g' + i, 'G' + i, { keywords: 'q' + i })), saved: [], seen: '' };
+  assert.throws(() => wm.mergeWorkspaces(many, more), (e) => e.reason === 'too_large');
+});
+
+test('link merges the google:<sub> workspace into the ChatGPT one and deletes it, atomically (with overlap)', async (t) => {
+  if (!sqlite) return t.skip('node:sqlite unavailable');
+  const d1 = sqliteD1();
+  putWs(d1, 'chatgpt-user-1', { profiles: [prof('p1', 'Studio')], saved: [sv('p1', 'g1', { notes: 'keep' })], seen: '2026-10-01T00:00:00.000Z' });
+  putWs(d1, 'google:1234567890', { profiles: [prof('p1', 'Other'), prof('p2', 'Kid')], saved: [sv('p1', 'g1', { notes: 'drop' }), sv('p2', 'g2')], seen: '2026-10-02T00:00:00.000Z' });
+  putWs(d1, 'someone-else', { profiles: [prof('z', 'Z')], saved: [], seen: '' });
+  const res = await linkFlow(d1LinkStore(d1));
+  assert.equal(res.status, 302);
+  assert.deepEqual(linkRows(d1), [{ google_sub: '1234567890', chatgpt_user_id: 'chatgpt-user-1' }]);
+  const ws = getWs(d1, 'chatgpt-user-1');
+  assert.deepEqual(ws.profiles.map((p) => p.name), ['Studio', 'Kid']);
+  assert.deepEqual(ws.saved.map((s) => `${s.profileId}/${s.grantId}/${s.notes}`), ['p1/g1/keep', 'p2/g2/']);
+  assert.equal(ws.seen, '2026-10-02T00:00:00.000Z');
+  assert.equal(getWs(d1, 'google:1234567890'), null, 'orphaned Google workspace deleted');
+  assert.equal(getWs(d1, 'someone-else').profiles.length, 1, 'other workspaces untouched');
+  // After linking, a Google session for that sub opens the merged ChatGPT workspace.
+  const u = await cu.resolveCurrentUser(null, `${session.SESSION_COOKIE}=${await session.signSession('1234567890', SESSION_SECRET)}`, ENV, d1LinkStore(d1).chatgptIdForSub);
+  assert.equal(u.userId, 'chatgpt-user-1');
+});
+
+test('link merges into a ChatGPT account that has no workspace yet', async (t) => {
+  if (!sqlite) return t.skip('node:sqlite unavailable');
+  const d1 = sqliteD1();
+  const google = { profiles: [prof('p2', 'Kid')], saved: [sv('p2', 'g2')], seen: '2026-10-02T00:00:00.000Z' };
+  putWs(d1, 'google:1234567890', google);
+  const r = await d1LinkStore(d1).link('1234567890', 'chatgpt-user-1');
+  assert.deepEqual(r, { merged: true, profilesAdded: 1, savedAdded: 1 });
+  assert.deepEqual(getWs(d1, 'chatgpt-user-1'), google);
+  assert.equal(getWs(d1, 'google:1234567890'), null);
+});
+
+test('link with no Google workspace is a plain link: the ChatGPT workspace is not rewritten', async (t) => {
+  if (!sqlite) return t.skip('node:sqlite unavailable');
+  const d1 = sqliteD1();
+  const raw = '{"profiles":[],"saved":[],"seen":"","custom":1}';
+  d1.raw.prepare('INSERT INTO workspaces (owner, data) VALUES (?, ?)').run('chatgpt-user-1', raw);
+  assert.deepEqual(await d1LinkStore(d1).link('1234567890', 'chatgpt-user-1'), { merged: false, profilesAdded: 0, savedAdded: 0 });
+  assert.equal(d1.raw.prepare('SELECT data FROM workspaces WHERE owner = ?').get('chatgpt-user-1').data, raw, 'byte-for-byte unchanged');
+  assert.equal(d1.raw.prepare('SELECT count(*) AS n FROM workspaces').get().n, 1);
+  assert.equal(linkRows(d1).length, 1);
+});
+
+test('a failure during the link batch rolls back: both workspaces intact and no link', async (t) => {
+  if (!sqlite) return t.skip('node:sqlite unavailable');
+  const chatgpt = { profiles: [prof('p1', 'Studio')], saved: [], seen: '' };
+  const google = { profiles: [prof('p2', 'Kid')], saved: [sv('p2', 'g2')], seen: '' };
+  for (const failOn of [/^DELETE FROM workspaces/, /^INSERT INTO workspaces/]) {
+    const d1 = sqliteD1({ failOn });
+    putWs(d1, 'chatgpt-user-1', chatgpt); putWs(d1, 'google:1234567890', google);
+    const res = await linkFlow(d1LinkStore(d1));
+    assert.equal(res.status, 409);
+    assert.match(await res.text(), /Nothing was changed/);
+    assert.deepEqual(getWs(d1, 'chatgpt-user-1'), chatgpt, String(failOn));
+    assert.deepEqual(getWs(d1, 'google:1234567890'), google, String(failOn));
+    assert.equal(linkRows(d1).length, 0, String(failOn));
+  }
+  // Too large to merge: refused before any write.
+  const d1 = sqliteD1();
+  const big = (p) => ({ profiles: Array.from({ length: 30 }, (_, i) => prof(p + i, p + i, { keywords: p + i })), saved: [], seen: '' });
+  putWs(d1, 'chatgpt-user-1', big('c')); putWs(d1, 'google:1234567890', big('g'));
+  const res = await linkFlow(d1LinkStore(d1));
+  assert.equal(res.status, 409); assert.match(await res.text(), /over the limit/);
+  assert.equal(getWs(d1, 'chatgpt-user-1').profiles.length, 30); assert.equal(getWs(d1, 'google:1234567890').profiles.length, 30); assert.equal(linkRows(d1).length, 0);
+});
+
+test('a concurrent edit during linking never loses data: the guarded batch writes nothing and retries', async (t) => {
+  if (!sqlite) return t.skip('node:sqlite unavailable');
+  // Every attempt sees the Google workspace change between read and batch: link gives up, nothing written.
+  let n = 0;
+  const d1 = sqliteD1({ beforeBatch: (db) => { putWs(db, 'google:1234567890', { profiles: [prof('p2', 'Kid'), prof('n' + n, 'Added ' + n++)], saved: [], seen: '' }); } });
+  putWs(d1, 'chatgpt-user-1', { profiles: [prof('p1', 'Studio')], saved: [], seen: '' });
+  putWs(d1, 'google:1234567890', { profiles: [prof('p2', 'Kid')], saved: [], seen: '' });
+  await assert.rejects(d1LinkStore(d1).link('1234567890', 'chatgpt-user-1'), (e) => e.reason === 'busy');
+  assert.deepEqual(getWs(d1, 'chatgpt-user-1').profiles.map((p) => p.id), ['p1']);
+  assert.equal(getWs(d1, 'google:1234567890').profiles.length, 2);
+  assert.equal(linkRows(d1).length, 0);
+  // One concurrent edit, then quiet: the retry merges the newest data.
+  let once = true;
+  const d2 = sqliteD1({ beforeBatch: (db) => { if (once) { once = false; putWs(db, 'chatgpt-user-1', { profiles: [prof('p1', 'Studio'), prof('p9', 'Late')], saved: [], seen: '' }); } } });
+  putWs(d2, 'chatgpt-user-1', { profiles: [prof('p1', 'Studio')], saved: [], seen: '' });
+  putWs(d2, 'google:1234567890', { profiles: [prof('p2', 'Kid')], saved: [], seen: '' });
+  await d2LinkCheck(d2);
+});
+async function d2LinkCheck(d2) {
+  const r = await d1LinkStore(d2).link('1234567890', 'chatgpt-user-1');
+  assert.equal(r.merged, true);
+  assert.deepEqual(getWs(d2, 'chatgpt-user-1').profiles.map((p) => p.id), ['p1', 'p9', 'p2'], 'retry used the concurrent edit');
+  assert.equal(getWs(d2, 'google:1234567890'), null);
+}
 
 // ---------- owner / MCP stay ChatGPT-only ----------
 test('owner access rejects every Google identity, even one linked to the owner', async () => {

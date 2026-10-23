@@ -114,7 +114,8 @@ export default function TermsPage() {
       <p>
         Your saved workspace is tied to the account id supplied by Sign in with
         ChatGPT. A Google sign-in opens the linked ChatGPT workspace, or, if
-        that Google account is not linked, a separate workspace of its own. Do
+        that Google account is not linked, a separate workspace of its own.
+        Linking moves that Google workspace into your ChatGPT workspace. Do
         not attempt to use another person’s account or to read
         another person’s workspace. Catalog administration and the global
         refresh are limited to the site operator, signed in with ChatGPT.

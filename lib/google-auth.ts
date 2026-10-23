@@ -23,7 +23,8 @@ export type OAuthState = { state: string; verifier: string; nonce: string; inten
 export type LinkStore = {
   chatgptIdForSub(sub: string): Promise<string | null>;
   subForChatGPT(chatgptUserId: string): Promise<string | null>;
-  link(sub: string, chatgptUserId: string): Promise<void>;
+  /** Link and merge any 'google:<sub>' workspace into the ChatGPT one (atomic). Throws { reason } on failure. */
+  link(sub: string, chatgptUserId: string): Promise<unknown>;
   unlink(chatgptUserId: string): Promise<boolean>;
 };
 
@@ -247,7 +248,15 @@ export async function handleCallback(request: Request, env: EnvLike, links: Link
     const current = await links.subForChatGPT(chatgptId);
     if (current && current !== claims.sub) return messagePage(409, 'A different Google account is already linked to this workspace. Unlink it first.', clear);
     if (!existing) {
-      try { await links.link(claims.sub, chatgptId); } catch { return messagePage(409, 'This Google account could not be linked. Please try again.', clear); }
+      try {
+        await links.link(claims.sub, chatgptId);
+      } catch (e) {
+        const reason = (e as { reason?: unknown } | null)?.reason;
+        if (reason === 'too_large') return messagePage(409, 'Your Google workspace could not be merged: together the two workspaces would be over the limit of 50 profiles and 500 saved items. Nothing was changed. Remove some items and try again.', clear);
+        if (reason === 'busy') return messagePage(409, 'Your workspace changed while linking. Nothing was changed. Please try again.', clear);
+        if (reason === 'unavailable') return messagePage(503, 'Linking is unavailable right now. Nothing was changed. Please try again later.', clear);
+        return messagePage(409, 'This Google account could not be linked. Nothing was changed. Please try again.', clear);
+      }
     }
     return redirect(rt, clear);
   }

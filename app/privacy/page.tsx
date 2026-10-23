@@ -4,7 +4,7 @@ import { Confirm, LegalShell } from "@/components/legal-page";
 export const metadata: Metadata = {
   title: "Privacy policy (draft) — I Can Get Grants",
   description:
-    "Draft privacy policy for the I Can Get Grants public beta: guest search, Sign in with ChatGPT, Continue with Google, workspace data stored in Cloudflare D1, and funding-source requests. Pending review. Not legal advice.",
+    "Draft privacy policy for the I Can Get Grants public beta: guest search, Sign in with ChatGPT, workspace data stored in Cloudflare D1, and funding-source requests. Pending review. Not legal advice.",
 };
 
 export default function PrivacyPage() {
@@ -110,8 +110,10 @@ export default function PrivacyPage() {
         Preferences &amp; data. A <code>google_links</code> row then stores the
         Google identifier, your ChatGPT account id, and the time of linking,
         and Continue with Google opens your ChatGPT workspace. Unlinking deletes
-        that row. A workspace created earlier with Google alone is kept
-        separately and is not merged when you link.
+        that row. If that Google account already had its own workspace, linking
+        moves its profiles and saved items into your ChatGPT workspace (your
+        ChatGPT entries win where the two overlap) and then deletes the Google
+        workspace, in one step. Unlinking later does not move anything back.
       </p>
       <p>
         Catalog administration and the owner-only tools are available only
