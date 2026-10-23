@@ -18,16 +18,19 @@ export default function TermsPage() {
         a provider’s own application rules.
       </p>
       <p>
-        <Confirm>
-          the legal name of the operator, the contact email, the governing law,
-          the courts that would hear a dispute, and the effective date
-        </Confirm>
+        The operator is Tobias Fletcher, Brooklyn, New York. No street address
+        is published. Email{" "}
+        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
+      </p>
+      <p>Effective date: October 23, 2026.</p>
+      <p>
+        These terms are governed by the law of the State of New York. Disputes
+        are heard in the state or federal courts located in New York.
       </p>
       <p>
         <Confirm>
-          whether using the beta will count as acceptance of a future published
-          version of these terms. The product does not currently record
-          acceptance
+          whether using the beta counts as acceptance of these terms. The
+          product does not currently record acceptance
         </Confirm>
       </p>
 
@@ -47,10 +50,9 @@ export default function TermsPage() {
         with this app is described in the <Link href="/privacy">privacy policy</Link>.
       </p>
       <p>
-        This version has no checkout and does not charge a fee inside the app.
-      </p>
-      <p>
-        <Confirm>whether the operator will charge a fee later</Confirm>
+        I Can Get Grants is free during the beta. This version has no checkout.
+        Any future paid features will be announced with updated terms before
+        they apply.
       </p>
 
       <h2>Listings are informational</h2>
@@ -84,17 +86,25 @@ export default function TermsPage() {
         not ask for age and does not include a parental-consent step.
       </p>
       <p>
-        You can delete a profile, remove a saved opportunity, and download the
-        workspace loaded in the browser as <code>grantwell-workspace.json</code>.
-        Signing out does not erase a saved workspace. There is no in-product
-        control that deletes the account itself. The privacy policy describes
-        what remains stored.
+        You must be at least 13 to use the service. If you are under 18, use it
+        with a parent or guardian’s involvement. The operator does not knowingly
+        collect personal information from children under 13.
       </p>
       <p>
-        <Confirm>
-          the minimum age to create an account, and the process for requesting
-          deletion of a workspace
-        </Confirm>
+        You can delete a profile, remove a saved opportunity, and download the
+        workspace loaded in the browser as <code>grantwell-workspace.json</code>.
+        Signing out does not erase a saved workspace. The app has no button that
+        deletes the account itself.
+      </p>
+      <p>
+        You can ask for access to your workspace data, or for deletion of it,
+        by emailing{" "}
+        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
+        Requests are handled manually. A completed deletion removes that
+        account’s workspace and the refresh and scan records tied to that
+        account or to its profile ids. During the beta there is no automatic
+        retention period. The <Link href="/privacy">privacy policy</Link>{" "}
+        describes what is stored.
       </p>
 
       <h2>Accounts</h2>
@@ -140,7 +150,7 @@ export default function TermsPage() {
       </p>
       <p>
         <Confirm>
-          that this is the schedule you operate, and any uptime or support
+          that this is the schedule in operation, and any uptime or support
           commitment. None is stated in the application code
         </Confirm>
       </p>
@@ -160,27 +170,31 @@ export default function TermsPage() {
 
       <h2>Disclaimers and liability</h2>
       <p>
-        Until counsel reviews this draft, treat the beta as an informational
-        tool provided as available, without a promise that a listing is
-        complete, current, or suitable for a particular application.
+        The beta is provided “as is” and “as available.” To the extent allowed
+        by law, the operator disclaims warranties, including implied warranties
+        of merchantability, fitness for a particular purpose, and
+        non-infringement. Listings may be incomplete, out of date, or
+        unsuitable for a particular application.
       </p>
       <p>
-        <Confirm>
-          the warranty disclaimer and liability limit to publish, including any
-          damages cap, arbitration clause, or class-action waiver. None of
-          those are implemented in the product
-        </Confirm>
+        To the extent allowed by law, the operator is not liable for indirect,
+        incidental, special, consequential, or punitive damages, or for lost
+        profits, data, or funding opportunities, arising out of the beta or
+        these terms. These terms do not require arbitration and do not waive
+        the right to participate in a class action. Where a disclaimer or limit
+        is not allowed, it applies only as far as the law allows.
       </p>
 
       <h2>Changes</h2>
       <p>
-        <Confirm>how later terms will be posted</Confirm>
+        Updated versions of these terms are posted at this same address,{" "}
+        <code>/terms</code>, with a new effective date.
       </p>
 
       <h2>Contact</h2>
       <p>
-        Questions about these terms:{" "}
-        <Confirm>the contact email and mailing address</Confirm>
+        Questions about these terms: Tobias Fletcher, Brooklyn, New York,{" "}
+        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
       </p>
     </LegalShell>
   );

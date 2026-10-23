@@ -17,10 +17,14 @@ export default function PrivacyPage() {
         The product name in the interface is I Can Get Grants.
       </p>
       <p>
-        <Confirm>the legal name, mailing address, and contact email of the operator</Confirm>
+        The operator is Tobias Fletcher, Brooklyn, New York. No street address
+        is published. Questions, access requests, and deletion requests go to{" "}
+        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
       </p>
+      <p>Effective date: October 23, 2026.</p>
       <p>
-        Effective date: <Confirm>the date this policy takes effect</Confirm>
+        The law of the State of New York governs this policy. Disputes are
+        heard in the state or federal courts located in New York.
       </p>
 
       <h2>Searching without an account</h2>
@@ -204,7 +208,7 @@ export default function PrivacyPage() {
       <p>
         <Confirm>
           who operates that daily refresh, and any separate logging it creates.
-          Do not treat this draft as a change to that task
+          This draft does not change that task
         </Confirm>
       </p>
 
@@ -282,7 +286,10 @@ export default function PrivacyPage() {
       </p>
 
       <h2>Export, retention, and deletion</h2>
-      <p>There is no automatic deletion period in the application.</p>
+      <p>
+        During the beta there is no automatic retention period and no automatic
+        deletion.
+      </p>
       <ul>
         <li>
           You can delete a profile from the profile editor. The next successful
@@ -302,30 +309,34 @@ export default function PrivacyPage() {
           row.
         </li>
         <li>
-          There is no control that deletes the account, the workspace row by
-          itself, or the refresh-time row.
+          The app has no button that deletes the account, the workspace row, or
+          the refresh-time row.
         </li>
       </ul>
       <p>
-        <Confirm>
-          a contact method for access or deletion requests, any retention
-          period to adopt, and whether refresh-time rows and scan summaries
-          that contain profile ids should be deleted with an account
-        </Confirm>
+        You can ask for access to your workspace data, or for deletion of it,
+        by emailing{" "}
+        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
+        Requests are handled manually. A completed deletion removes that
+        account’s workspace and the refresh and scan records tied to that
+        account or to its profile ids.
       </p>
 
-      <h2>Other people, including students</h2>
+      <h2>Age and information about other people</h2>
       <p>
-        You can create a profile for a student or another person. The form does
-        not ask for age. Study levels include high school. The app does not
-        have a parental-consent step. If you enter information about someone
-        else, you need permission to do that.
+        I Can Get Grants is for people 13 and older. If you are under 18, use
+        it with a parent or guardian’s involvement. The operator does not
+        knowingly collect personal information from children under 13. The app
+        does not ask for age, and it has no age gate or parental-consent step.
       </p>
       <p>
-        <Confirm>
-          the minimum age for an account, and whether a separate children’s
-          privacy notice is required
-        </Confirm>
+        You can create a profile for a student or another person. Study levels
+        include high school. The interface says student names can be nicknames.
+        Add information about someone else only when you have permission to do
+        that. If you believe information about a child under 13 has been saved,
+        email{" "}
+        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a> so
+        it can be deleted.
       </p>
 
       <h2>Safeguards in this version</h2>
@@ -356,16 +367,15 @@ export default function PrivacyPage() {
 
       <h2>Changes to this policy</h2>
       <p>
-        The product does not currently record that a visitor accepted this
-        policy.
-      </p>
-      <p>
-        <Confirm>how a later version of this policy will be posted or announced</Confirm>
+        Updated versions of this policy are posted at this same address,{" "}
+        <code>/privacy</code>, with a new effective date. The product does not
+        currently record that a visitor accepted this policy.
       </p>
 
       <h2>Contact</h2>
       <p>
-        <Confirm>the privacy contact email and mailing address</Confirm>
+        Tobias Fletcher, Brooklyn, New York. Email{" "}
+        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
       </p>
     </LegalShell>
   );
