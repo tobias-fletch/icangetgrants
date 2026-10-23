@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { getDb } from '@/db';
 import { workspaces, jobs, catalog } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -9,6 +10,7 @@ import { isOpenOpportunity, newOpportunityItems, profileMatches, monitoredProfil
 import { cityById, cityEvidenceHostAllowed } from './city-registry';
 import { planResearchTasks, stateResearchKey, cityResearchKey } from './research-plan';
 import type { Grant, Profile } from './grants';
+import { rebuildSeoIndex, type D1Like } from './seo-store';
 // Plans state and city research for every monitored profile (not only alert-enabled ones) plus Wave 1 cities.
 // Returns at most `limit` due tasks (default 5, max 20), rotated by priority and nextDueAt; see research-plan.ts.
 // Task fields from earlier versions (state, code, category, source, fallback, localHosts, sourceStatus, lastResearch,
@@ -40,6 +42,8 @@ export async function recordStateOpportunities(input:any){
  const owners=await db.select().from(workspaces);const profiles:Profile[]=owners.flatMap(r=>JSON.parse(r.data).profiles).filter((p:Profile)=>p.alerts);const ids=[...staged.keys()];const verified=[];for(const id of ids){const row=await db.select().from(catalog).where(eq(catalog.id,id));if(row[0])verified.push(id);}
  // Closed or past-deadline records are stored for completeness but never counted or listed as new.
  const created=[...staged.values()].filter(g=>newIds.has(g.id)),newRecords=created.filter(g=>isOpenOpportunity(g,now));const matches=new Map(newRecords.map(g=>[g.id,profileMatches(g,profiles)]));const matchedNew=newRecords.filter(g=>matches.get(g.id)!.length);
+ // Keep the /grants SEO index in step with the catalog (one read + one write per research batch).
+ try{if(env.DB)await rebuildSeoIndex(env.DB as unknown as D1Like);}catch(e){console.error('seo-index rebuild failed',e instanceof Error?e.message:'unknown');}
  return {persistedIds:verified,newOpportunities:newRecords.length,newMatchedOpportunities:matchedNew.length,...newOpportunityItems(newRecords,matches),updatedExisting,closedNotReported:created.length-newRecords.length,checkedAt:now};
 }
 export async function markStateResearched(input:any){const state=stateSources.find(s=>s.code===input?.stateCode);if(!state||!STATE_CATEGORIES.includes(input?.category)||typeof input?.summary!=='string'||input.summary.length>1200)throw new Error('Provide stateCode, category and a brief research summary.');const city=input?.cityId==null?undefined:cityById(input.cityId);if(input?.cityId!=null&&(!city||city.stateCode!==state.code||input.category==='aid'))throw new Error('Invalid city for this state or category.');const record:any={checkedAt:new Date().toISOString(),summary:input.summary};if(city)record.cityId=city.id;const id=city?cityResearchKey(city.id,input.category):stateResearchKey(state.code,input.category);await getDb().insert(jobs).values({id,data:JSON.stringify(record)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(record)}});return record;}

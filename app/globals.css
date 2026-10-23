@@ -25,7 +25,6 @@ footer{font-size:11px;color:#89969f;margin-top:34px;padding:22px 0;line-height:1
 @media(max-width:760px){.sidebar{position:static;width:100%;padding:18px 19px 0}.brand{font-size:19px;margin-bottom:0}.sidebar nav{margin-top:18px;padding-bottom:12px;gap:5px}.sidebar nav button{font-size:12px;padding:9px 10px}.sidebar nav button:nth-child(n+5){display:flex}.main-shell{margin:0;width:100%}.topbar{height:52px;padding:0 20px}.breadcrumb{font-size:11px}.top-actions{gap:10px}.account-link{font-size:11px}main{padding:27px 19px 0}.page-heading h1{font-size:31px}.page-heading p{font-size:13px}.page-heading>.btn{margin-top:0;min-height:38px;font-size:11px}.beta-search{padding:19px;margin-bottom:26px}.search-panel-label{flex-wrap:wrap;font-size:13px}.search-panel-label small{margin-left:0;flex-basis:100%;padding-left:24px}.beta-fields label{min-width:calc(50% - 12px);flex-basis:calc(50% - 12px)}.beta-fields label:nth-child(3){flex-basis:100%}.beta-fields .btn{flex:auto}.section-heading h2{font-size:18px}.section-heading p{font-size:11px}.section-heading>.btn{font-size:10px;min-width:0}.filterbar select{font-size:11px;max-width:none}.filterbar .btn{font-size:11px}.cards{grid-template-columns:1fr}.card-title{font-size:18px}.description{font-size:13px}.funder-meta>span{font-size:12px}.funder-meta small{font-size:10px}.award-row strong{font-size:20px}.award-row .deadline{font-size:12px}.match-row button{font-size:12px}.fit-caption{display:block;font-size:10px}footer{font-size:10px;display:block}footer>span+span{display:block;margin-top:5px}}
 @media(prefers-reduced-motion:reduce){.grant-card{transition:none}}
 .catalog-freshness{margin:0 0 18px}.catalog-updated{font-size:12px;color:#5d6f78;margin:0 0 10px}.catalog-updated strong{color:#245c43;font-weight:650}.notice.stale{background:#fff4df;border-color:#ead7b0;color:#8a5a22}
-.catalog-loading{max-width:720px;margin:72px auto;padding:0 24px}.catalog-loading h1{font-family:Georgia,'Times New Roman',serif;font-size:32px;font-weight:400;margin:12px 0}.catalog-loading p{color:#718078;line-height:1.6}
 
 .policy-links{display:flex;flex-direction:row;align-items:center;gap:14px;flex-wrap:wrap}
 .footer-links{display:flex;flex-direction:row;align-items:center;gap:14px;flex-wrap:wrap}
@@ -52,3 +51,44 @@ footer{font-size:11px;color:#89969f;margin-top:34px;padding:22px 0;line-height:1
 .legal-confirm{color:#6a3d0c;font-weight:750;background:#fff6e4;border-radius:4px;padding:0 3px}
 .legal-page footer{margin-top:28px}
 @media(max-width:760px){.legal-page{padding:18px 16px 36px}.legal-top{align-items:flex-start;flex-direction:column}.legal-doc{padding:22px 16px 8px}.legal-doc h1{font-size:28px}.policy-links{gap:10px}footer .footer-links{margin-top:6px}footer .footer-links+span{display:block;margin-top:6px}}
+/* /grants SEO pages (mobile first) */
+.seo-page{max-width:960px;margin:0 auto;padding:22px 16px 40px}
+.seo-top{flex-wrap:wrap}
+.seo-nav{align-items:center}
+.seo-nav a{display:inline-flex;align-items:center;min-height:44px;text-decoration:underline;text-underline-offset:2px;color:#087d68;font-weight:650}
+.seo-main{max-width:none;padding:0}
+.seo-crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:4px;padding:0;margin:0 0 14px;font-size:13px;color:#66747c}
+.seo-crumbs li+li::before{content:"›";margin-right:4px;color:#9aa6ad}
+.seo-crumbs a{color:#087d68;display:inline-flex;min-height:32px;align-items:center}
+.seo-hero h1{font-size:28px;letter-spacing:-.8px;line-height:1.15;margin:6px 0 12px}
+.seo-hero p{font-size:15px;line-height:1.6;color:#314049;margin:0 0 10px;max-width:70ch}
+.seo-hero .seo-lede{font-size:16px;color:#17252b}
+.seo-refresh{font-size:13px!important;color:#66747c!important}
+.seo-thin{background:#fff4d6;border:1px solid #e2c56a;color:#5c3b09;border-radius:10px;padding:12px 14px}
+.save-cta{display:flex;flex-direction:column;gap:6px;background:#edf6f2;border:1px solid #c9e3d8;border-radius:14px;padding:16px;margin:18px 0 24px}
+.save-cta p{margin:0;font-size:13px;line-height:1.5;color:#1f4d42}
+.save-cta-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;font-size:14px;text-align:center;text-decoration:none;align-self:stretch}
+.save-cta-button:focus-visible,.seo-page a:focus-visible{outline:3px solid #f2b705;outline-offset:2px}
+.save-cta.compact{background:none;border:0;padding:0;margin:0}
+.save-cta-home-search{margin-top:-14px}
+.seo-page h2{font-size:19px;letter-spacing:-.3px;margin:26px 0 12px}
+.seo-listings{list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.seo-listing{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.seo-listing h3{font-size:16px;line-height:1.35;margin:0 0 4px}
+.seo-listing h3 a{color:#17252b;text-decoration:underline;text-decoration-color:#b9c6cd;text-underline-offset:3px;display:inline-block;padding:4px 0}
+.seo-funder{margin:0 0 8px;color:#526672;font-size:13px}
+.seo-facts{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 8px}
+.seo-facts div{display:flex;gap:6px;font-size:13px}.seo-facts dt{color:#66747c}.seo-facts dd{margin:0;font-weight:650}
+.seo-meta{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0;font-size:12px;color:#66747c}
+.seo-status{background:#eaf0f4;color:#3c5260;border-radius:6px;padding:2px 7px}
+.seo-listing .attribution{font-size:11px;color:#89969f;margin:8px 0 0}
+.seo-more a,.seo-related a,.seo-hero a,.seo-nationwide p a{color:#087d68;font-weight:650}
+.seo-more{margin:14px 0}.seo-more a{display:inline-flex;min-height:44px;align-items:center}
+.seo-nationwide>p{font-size:14px;line-height:1.6;color:#314049}
+.seo-related ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr;gap:6px}
+.seo-related li{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:0 14px}
+.seo-related li a{display:flex;align-items:center;min-height:44px;flex:1}
+.seo-count{font-size:12px;color:#526672;background:#eaf0f4;border-radius:6px;padding:2px 7px}
+.seo-disclaimer{font-size:13px;line-height:1.6;color:#526672;margin:28px 0 0}
+@media(min-width:700px){.seo-page{padding:28px 24px 48px}.seo-hero h1{font-size:36px}.save-cta{flex-direction:row;align-items:center;gap:16px}.save-cta-button{align-self:auto}.seo-related ul{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1000px){.seo-related ul{grid-template-columns:repeat(3,minmax(0,1fr))}}
