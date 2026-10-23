@@ -7,7 +7,7 @@ import ts from 'typescript';
 const out=resolve('.sites-runtime/tests');mkdirSync(out,{recursive:true});
 for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const parser=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
-const {match,seeds}=await import(pathToFileURL(`${out}/grants.mjs`).href);
+const {match,seeds,newOpportunityItems,NEW_ITEM_LIMIT,newItemsSchemaProperties}=await import(pathToFileURL(`${out}/grants.mjs`).href);
 const now='2026-10-18T21:00:00Z';
 const p={id:'test',name:'Synthetic student',type:'Student',country:'USA',state:'NY',keywords:'engineering, technology',goal:5000,education:'Undergraduate',details:'',alerts:true};
 test('state and country aliases normalize without substring matching',()=>{assert.equal(parser.stateName('ny'),'New York');assert.equal(parser.countryName('USA'),'United States');assert.equal(parser.stateName('california'),'California');assert.ok(match(seeds[3],p).score>0);});
@@ -22,7 +22,57 @@ test('multi-interest search expands and caps terms',()=>{const terms=parser.inte
 
 const stateModule=await import(pathToFileURL(out+'/state-registry.mjs').href);
 const stateScan=await import(pathToFileURL(out+'/state-discovery.mjs').href);
-test('all 50 states have both business and aid routes and normalized routing',()=>{assert.equal(stateModule.stateSources.length,50);assert.equal(new Set(stateModule.stateSources.map(s=>s.code)).size,50);for(const s of stateModule.stateSources){assert.ok(s.state);assert.ok(new URL(s.business.url));assert.ok(new URL(s.aid.url));assert.equal(stateModule.sourceForState(s.code.toLowerCase()).state,s.state);assert.equal(stateModule.sourceForState(s.state.toLowerCase()).code,s.code);}});
+test('all 50 states have both business and aid routes and normalized routing',()=>{assert.equal(stateModule.stateSources.length,50);assert.equal(new Set(stateModule.stateSources.map(s=>s.code)).size,50);for(const s of stateModule.stateSources){assert.ok(s.state);assert.ok(Array.isArray(s.localHosts));assert.ok(new URL(s.business.url));assert.ok(new URL(s.aid.url));assert.equal(stateModule.sourceForState(s.code.toLowerCase()).state,s.state);assert.equal(stateModule.sourceForState(s.state.toLowerCase()).code,s.code);}});
+test('New York city hosts and configured state hosts are accepted; lookalikes are not',()=>{
+ const ny=stateModule.sourceForState('NY');
+ assert.deepEqual(ny.localHosts,['nyc.gov','nyc-business.nyc.gov']);
+ assert.deepEqual(stateModule.stateSources.filter(s=>s.localHosts.length).map(s=>s.code),['NY']);
+ for(const host of ['nyc-business.nyc.gov','nyc.gov','www1.nyc.gov','www.nyc.gov','esd.ny.gov','www.hesc.ny.gov','hesc.ny.gov','health.ny.gov','www.ny.gov','NYC-BUSINESS.NYC.GOV'])assert.equal(stateModule.evidenceHostAllowed(ny,`https://${host}/program`),true,host);
+ assert.equal(stateModule.evidenceHostAllowed(ny,'http://programs.nyc-business.nyc.gov/apply'),true);
+ for(const host of ['evilnyc.gov','nyc.gov.evil.com','example.com','notnyc.gov','fake.ny.example.gov','esd.ny.gov.evil.com'])assert.equal(stateModule.evidenceHostAllowed(ny,`https://${host}/new-york`),false,host);
+ assert.equal(stateModule.evidenceHostAllowed(ny,'https://evil.gov/grants/new-york-business'),false);
+ assert.equal(stateModule.evidenceHostAllowed(ny,'javascript:alert(1)//nyc.gov'),false);
+ const ak=stateModule.sourceForState('AK');
+ assert.equal(stateModule.evidenceHostAllowed(ak,'https://www.aksbdc.org/help'),true);
+ assert.equal(stateModule.evidenceHostAllowed(ak,'https://evil.aksbdc.org/help'),false);
+ assert.equal(stateModule.evidenceHostAllowed(ak,'https://nyc.gov/'),false);
+});
+test('new opportunity items keep title, url, funder, and null deadlines, with matches first and a cap',()=>{
+ const rows=[{id:'a',title:'Alpha grant',url:'https://esd.ny.gov/a',funder:'Empire State Development',deadline:undefined},{id:'b',title:'Beta grant',url:'https://nyc.gov/b',funder:'NYC',deadline:null},{id:'c',title:'Gamma grant',url:'https://nyc-business.nyc.gov/c',funder:'NYC SBS',deadline:'2026-12-01'}];
+ const capped=newOpportunityItems(rows,['c','missing'],2);
+ assert.equal(capped.newItemsTotal,3);
+ assert.deepEqual(capped.newItems,[{title:'Gamma grant',url:'https://nyc-business.nyc.gov/c',funder:'NYC SBS',deadline:'2026-12-01'},{title:'Alpha grant',url:'https://esd.ny.gov/a',funder:'Empire State Development',deadline:null}]);
+ assert.deepEqual(Object.keys(capped.newItems[0]).sort(),['deadline','funder','title','url']);
+ const many=Array.from({length:NEW_ITEM_LIMIT+5},(_,i)=>({id:'n'+i,title:'Grant '+i,url:'https://ny.gov/'+i,funder:'New York',deadline:i===NEW_ITEM_LIMIT+4?'2026-11-01':null}));
+ const listed=newOpportunityItems(many,['n'+(NEW_ITEM_LIMIT+4)]);
+ assert.equal(listed.newItemsTotal,many.length);
+ assert.equal(listed.newItems.length,NEW_ITEM_LIMIT);
+ assert.equal(listed.newItems[0].title,'Grant '+(NEW_ITEM_LIMIT+4));
+ assert.equal(listed.newItems[0].deadline,'2026-11-01');
+ assert.ok(listed.newItems.slice(1).every(item=>item.deadline===null));
+ assert.equal(newItemsSchemaProperties.newItems.maxItems,NEW_ITEM_LIMIT);
+ assert.deepEqual(newItemsSchemaProperties.newItems.items.required,['title','url','funder','deadline']);
+ assert.deepEqual(newItemsSchemaProperties.newItems.items.properties.deadline.type,['string','null']);
+ assert.equal(newItemsSchemaProperties.newItems.items.additionalProperties,false);
+});
+test('refresh and record tools keep their names and publish the new item fields',()=>{
+ const route=readFileSync('app/mcp/route.ts','utf8');
+ const research=readFileSync('lib/state-research.ts','utf8');
+ const discovery=readFileSync('lib/discovery.ts','utf8');
+ assert.match(route,/name:'refresh_grants'/);
+ assert.match(route,/name:'record_state_opportunities'/);
+ assert.match(route,/outputSchema:refreshOutput/);
+ assert.match(route,/outputSchema:recordOutput/);
+ assert.match(route,/newItemsSchemaProperties/);
+ assert.match(route,/newGrants/);
+ assert.match(route,/persistedIds/);
+ assert.match(research,/evidenceHostAllowed\(state,sourceUrl\)/);
+ assert.match(research,/localHosts:t\.source\.localHosts/);
+ assert.match(research,/newOpportunityItems\(newRecords,matchedNew\.map\(g=>g\.id\)\)/);
+ assert.match(discovery,/newOpportunityItems\(newRecords,matchedNew\.map\(g=>g\.id\)\)/);
+ assert.match(discovery,/newGrants:newRecords\.length,newMatchedOpportunities:matchedNew\.length/);
+ assert.doesNotMatch(research,/host\.includes\('\.'\+state\.code/);
+});
 test('all 50 locations plan business and aid checks without duplicates',()=>{const profiles=stateModule.stateSources.flatMap(s=>[{...p,id:s.code+'b',type:'Small business',state:s.code},{...p,id:s.code+'a',state:s.state}]);assert.equal(stateModule.statePlan(profiles).length,100);assert.equal(stateModule.statePlan([...profiles,...profiles]).length,100);assert.equal(stateModule.statePlan(profiles.map(p=>({...p,alerts:false}))).length,0);});
 test('directories, loan programs, administrative memos and national aid are not state grants',()=>{const html='<main><a href="/grants">Grants and Scholarships</a><a href="/loans">Business Loan</a><a href="/memo">10/01/2026 TEXAS Grant Allocations Memo</a><a href="https://studentaid.gov/pell">Federal Pell Grant</a><a href="/equipment">Ohio Equipment Grant</a></main>';const links=stateScan.extractStateLinks(html,'https://example.gov/','business');assert.equal(links.filter(l=>!l.hub).length,1);assert.equal(links.filter(l=>!l.hub)[0].title,'Ohio Equipment Grant');assert.ok(links.find(l=>l.title==='Grants and Scholarships').hub);});
 test('state scanner follows funding hubs within request budget and keeps programs conditional',async()=>{const source=stateModule.sourceForState('OH');let calls=0;const fake=async url=>{calls++;return url===source.business.url?'<main><a href="/funding">Funding</a></main>':'<main><a href="/equipment-grant">Equipment Grant</a></main>';};const result=await stateScan.scanState(source,'business',fake,now);assert.ok(calls<=3);assert.equal(result.records.length,1);const g=result.records[0];assert.deepEqual(g.states,['Ohio']);assert.equal(g.eligibilityVerified,false);assert.equal(g.amount,null);assert.equal(g.deadline,null);assert.equal(match(g,{...p,type:'Small business',state:'NY',keywords:'equipment'}).score,0);assert.ok(match(g,{...p,type:'Small business',state:'OH',keywords:'equipment'}).score<=65);});
