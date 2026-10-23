@@ -34,3 +34,16 @@ export function match(g:Grant,p:Profile) {
  if(g.deadline && new Date(g.deadline+'T23:59:59Z')<new Date()) return {score:0,reasons:['Deadline has passed'],gaps};
  return {score:Math.min(g.eligibilityVerified===false?65:90,score),reasons,gaps};
 }
+export const NEW_ITEM_LIMIT=25;
+export type NewOpportunityItem={title:string;url:string;funder:string;deadline:string|null};
+export function newOpportunityItems(grants:Pick<Grant,'id'|'title'|'url'|'funder'|'deadline'>[],matchedIds:Iterable<string>=[],limit=NEW_ITEM_LIMIT){
+ const matched=new Set(matchedIds);
+ const ordered=[...grants.filter(g=>matched.has(g.id)),...grants.filter(g=>!matched.has(g.id))];
+ const items:NewOpportunityItem[]=ordered.map(g=>({title:g.title,url:g.url,funder:g.funder,deadline:g.deadline||null}));
+ return {newItems:items.slice(0,limit),newItemsTotal:items.length};
+}
+export const newOpportunityItemSchema={type:'object',additionalProperties:false,required:['title','url','funder','deadline'],properties:{title:{type:'string'},url:{type:'string'},funder:{type:'string'},deadline:{type:['string','null'],description:'Source-published date, or null when unknown.'}}};
+export const newItemsSchemaProperties={
+ newItems:{type:'array',maxItems:NEW_ITEM_LIMIT,description:`Newly discovered or newly persisted opportunities. Profile matches come first. Each item is title, url, funder, and deadline (null when unknown). At most ${NEW_ITEM_LIMIT} items.`,items:newOpportunityItemSchema},
+ newItemsTotal:{type:'number',minimum:0,description:'Uncapped number of those new opportunities. Existing count and ID fields are unchanged.'}
+};
