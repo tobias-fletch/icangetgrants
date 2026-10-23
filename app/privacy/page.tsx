@@ -377,7 +377,17 @@ export default function PrivacyPage() {
       <h2>Contact</h2>
       <p>
         Tobias Fletcher, Brooklyn, New York. Email{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>{" "}
+        or use the <a href="/contact">contact form</a>.
+      </p>
+      <p>
+        The contact form sends only the name, email address, and message you
+        type, when you press Send. It goes through a small form handler on
+        tobiasfletcher.com, hosted by Netlify, which emails it to the operator
+        through Google (Gmail) and sends you one short confirmation with a copy
+        of your message. A one-way hash of your IP address and email address
+        is used to count messages per day and limit abuse. Messages are used
+        only to reply.
       </p>
     </LegalShell>
   );
