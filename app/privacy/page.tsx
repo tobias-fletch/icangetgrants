@@ -19,7 +19,7 @@ export default function PrivacyPage() {
       <p>
         The operator is Tobias Fletcher, Brooklyn, New York. No street address
         is published. Questions, access requests, and deletion requests go to{" "}
-        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
+        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
       </p>
       <p>Effective date: October 23, 2026.</p>
       <p>
@@ -316,7 +316,7 @@ export default function PrivacyPage() {
       <p>
         You can ask for access to your workspace data, or for deletion of it,
         by emailing{" "}
-        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
+        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
         Requests are handled manually. A completed deletion removes that
         account’s workspace and the refresh and scan records tied to that
         account or to its profile ids.
@@ -335,7 +335,7 @@ export default function PrivacyPage() {
         Add information about someone else only when you have permission to do
         that. If you believe information about a child under 13 has been saved,
         email{" "}
-        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a> so
+        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a> so
         it can be deleted.
       </p>
 
@@ -375,7 +375,7 @@ export default function PrivacyPage() {
       <h2>Contact</h2>
       <p>
         Tobias Fletcher, Brooklyn, New York. Email{" "}
-        <a href="mailto:tobias.fletch@gmail.com">tobias.fletch@gmail.com</a>.
+        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
       </p>
     </LegalShell>
   );
