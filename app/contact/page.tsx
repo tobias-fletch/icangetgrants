@@ -21,7 +21,7 @@ export default function ContactPage() {
       </p>
       <ContactForm />
       <p className="contact-alt">
-        Prefer email? Write to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+        Prefer email? Write to {CONTACT_EMAIL}.
       </p>
     </LegalShell>
   );
