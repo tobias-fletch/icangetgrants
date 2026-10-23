@@ -238,6 +238,13 @@ export function isRefreshStale(checkedAt: string | null | undefined, now = Date.
   return now - parsed > STALE_AFTER_MS;
 }
 
+// Hours since the last refresh (one decimal, null when never refreshed or unparseable) and the 26-hour stale flag.
+export function refreshFreshness(checkedAt: string | null | undefined, now = Date.now()): { stale: boolean; hoursSinceRefresh: number | null } {
+  const parsed = checkedAt ? Date.parse(checkedAt) : NaN;
+  const hoursSinceRefresh = Number.isFinite(parsed) ? Math.round(((now - parsed) / 3600000) * 10) / 10 : null;
+  return { stale: isRefreshStale(checkedAt, now), hoursSinceRefresh };
+}
+
 export function formatLastUpdatedEt(checkedAt: string): string {
   const parsed = new Date(checkedAt);
   if (Number.isNaN(parsed.getTime())) return 'unavailable';

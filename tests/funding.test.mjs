@@ -7,7 +7,7 @@ import ts from 'typescript';
 const out=resolve('.sites-runtime/tests');mkdirSync(out,{recursive:true});
 for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const parser=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
-const {match,seeds,newOpportunityItems,NEW_ITEM_LIMIT,newItemsSchemaProperties}=await import(pathToFileURL(`${out}/grants.mjs`).href);
+const {match,seeds,newOpportunityItems,NEW_ITEM_LIMIT,newItemsSchemaProperties,isOpenOpportunity,profileMatches}=await import(pathToFileURL(`${out}/grants.mjs`).href);
 const now='2026-10-18T21:00:00Z';
 const p={id:'test',name:'Synthetic student',type:'Student',country:'USA',state:'NY',keywords:'engineering, technology',goal:5000,education:'Undergraduate',details:'',alerts:true};
 test('state and country aliases normalize without substring matching',()=>{assert.equal(parser.stateName('ny'),'New York');assert.equal(parser.countryName('USA'),'United States');assert.equal(parser.stateName('california'),'California');assert.ok(match(seeds[3],p).score>0);});
@@ -25,10 +25,22 @@ const stateScan=await import(pathToFileURL(out+'/state-discovery.mjs').href);
 test('all 50 states have both business and aid routes and normalized routing',()=>{assert.equal(stateModule.stateSources.length,50);assert.equal(new Set(stateModule.stateSources.map(s=>s.code)).size,50);for(const s of stateModule.stateSources){assert.ok(s.state);assert.ok(Array.isArray(s.localHosts));assert.ok(new URL(s.business.url));assert.ok(new URL(s.aid.url));assert.equal(stateModule.sourceForState(s.code.toLowerCase()).state,s.state);assert.equal(stateModule.sourceForState(s.state.toLowerCase()).code,s.code);}});
 test('New York city hosts and configured state hosts are accepted; lookalikes are not',()=>{
  const ny=stateModule.sourceForState('NY');
- assert.deepEqual(ny.localHosts,['nyc.gov','nyc-business.nyc.gov']);
+ assert.deepEqual(ny.localHosts,['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']);
  assert.deepEqual(stateModule.stateSources.filter(s=>s.localHosts.length).map(s=>s.code),['NY']);
  for(const host of ['nyc-business.nyc.gov','nyc.gov','www1.nyc.gov','www.nyc.gov','esd.ny.gov','www.hesc.ny.gov','hesc.ny.gov','health.ny.gov','www.ny.gov','NYC-BUSINESS.NYC.GOV'])assert.equal(stateModule.evidenceHostAllowed(ny,`https://${host}/program`),true,host);
  assert.equal(stateModule.evidenceHostAllowed(ny,'http://programs.nyc-business.nyc.gov/apply'),true);
+ // The 9 AM run's rejected NYC programs: Customized Training Grant and Gowanus Business Relocation Grant.
+ assert.equal(stateModule.evidenceHostAllowed(ny,'https://nyc-business.nyc.gov/nycbusiness/business-services/incentives/customized-training'),true);
+ assert.equal(stateModule.evidenceHostAllowed(ny,'https://nyc-business.nyc.gov/nycbusiness/description/gowanus-business-relocation-grant'),true);
+ for(const host of ['edc.nyc','www.edc.nyc','nycedc.com','www.nycedc.com','sbs.nyc.gov','www1.nyc.gov','portal.esd.ny.gov','dol.ny.gov'])assert.equal(stateModule.evidenceHostAllowed(ny,`https://${host}/grant`),true,host);
+ for(const host of ['edc.nyc.evil.com','evil-edc.nyc','nycedc.com.evil.com','fakenycedc.com','nyc.example.com','ny.gov.example.org'])assert.equal(stateModule.evidenceHostAllowed(ny,`https://${host}/grant`),false,host);
+ assert.equal(stateModule.govDomain('nyc-business.nyc.gov'),'nyc.gov');
+ assert.equal(stateModule.govDomain('www.aksbdc.org'),'');
+ // A configured .gov agency host vouches for its registered .gov domain's subdomains; a non-gov configured host stays exact.
+ const configuredGov=stateModule.stateSources.find(s=>/\.gov$/.test(new URL(s.business.url).hostname));
+ const govHost=stateModule.govDomain(new URL(configuredGov.business.url).hostname);
+ assert.equal(stateModule.evidenceHostAllowed(configuredGov,`https://grants-portal.${govHost}/apply`),true);
+ assert.equal(stateModule.evidenceHostAllowed(configuredGov,`https://grants-portal.${govHost}.example.com/apply`),false);
  for(const host of ['evilnyc.gov','nyc.gov.evil.com','example.com','notnyc.gov','fake.ny.example.gov','esd.ny.gov.evil.com'])assert.equal(stateModule.evidenceHostAllowed(ny,`https://${host}/new-york`),false,host);
  assert.equal(stateModule.evidenceHostAllowed(ny,'https://evil.gov/grants/new-york-business'),false);
  assert.equal(stateModule.evidenceHostAllowed(ny,'javascript:alert(1)//nyc.gov'),false);
@@ -41,8 +53,13 @@ test('new opportunity items keep title, url, funder, and null deadlines, with ma
  const rows=[{id:'a',title:'Alpha grant',url:'https://esd.ny.gov/a',funder:'Empire State Development',deadline:undefined},{id:'b',title:'Beta grant',url:'https://nyc.gov/b',funder:'NYC',deadline:null},{id:'c',title:'Gamma grant',url:'https://nyc-business.nyc.gov/c',funder:'NYC SBS',deadline:'2026-12-01'}];
  const capped=newOpportunityItems(rows,['c','missing'],2);
  assert.equal(capped.newItemsTotal,3);
- assert.deepEqual(capped.newItems,[{title:'Gamma grant',url:'https://nyc-business.nyc.gov/c',funder:'NYC SBS',deadline:'2026-12-01'},{title:'Alpha grant',url:'https://esd.ny.gov/a',funder:'Empire State Development',deadline:null}]);
- assert.deepEqual(Object.keys(capped.newItems[0]).sort(),['deadline','funder','title','url']);
+ assert.deepEqual(capped.newItems,[{title:'Gamma grant',url:'https://nyc-business.nyc.gov/c',funder:'NYC SBS',deadline:'2026-12-01',matched:true,matches:[]},{title:'Alpha grant',url:'https://esd.ny.gov/a',funder:'Empire State Development',deadline:null,matched:false,matches:[]}]);
+ assert.deepEqual(Object.keys(capped.newItems[0]).sort(),['deadline','funder','matched','matches','title','url']);
+ const details=new Map([['a',[{profileId:'s',profile:'Student',type:'Student',score:40}]],['b',[{profileId:'s',profile:'Student',type:'Student',score:80},{profileId:'biz',profile:'Shop',type:'Small business',score:50}]],['c',[]]]);
+ const detailed=newOpportunityItems(rows,details);
+ assert.deepEqual(detailed.newItems.map(i=>[i.title,i.matched]),[['Beta grant',true],['Alpha grant',true],['Gamma grant',false]]);
+ assert.deepEqual(detailed.newItems[0].matches.map(m=>[m.profile,m.score]),[['Student',80],['Shop',50]]);
+ assert.ok(detailed.newItems.every(i=>i.title&&i.url));
  const many=Array.from({length:NEW_ITEM_LIMIT+5},(_,i)=>({id:'n'+i,title:'Grant '+i,url:'https://ny.gov/'+i,funder:'New York',deadline:i===NEW_ITEM_LIMIT+4?'2026-11-01':null}));
  const listed=newOpportunityItems(many,['n'+(NEW_ITEM_LIMIT+4)]);
  assert.equal(listed.newItemsTotal,many.length);
@@ -51,7 +68,8 @@ test('new opportunity items keep title, url, funder, and null deadlines, with ma
  assert.equal(listed.newItems[0].deadline,'2026-11-01');
  assert.ok(listed.newItems.slice(1).every(item=>item.deadline===null));
  assert.equal(newItemsSchemaProperties.newItems.maxItems,NEW_ITEM_LIMIT);
- assert.deepEqual(newItemsSchemaProperties.newItems.items.required,['title','url','funder','deadline']);
+ assert.deepEqual(newItemsSchemaProperties.newItems.items.required,['title','url','funder','deadline','matched','matches']);
+ assert.deepEqual(newItemsSchemaProperties.newItems.items.properties.matches.items.required,['profileId','profile','type','score']);
  assert.deepEqual(newItemsSchemaProperties.newItems.items.properties.deadline.type,['string','null']);
  assert.equal(newItemsSchemaProperties.newItems.items.additionalProperties,false);
 });
@@ -68,8 +86,10 @@ test('refresh and record tools keep their names and publish the new item fields'
  assert.match(route,/persistedIds/);
  assert.match(research,/evidenceHostAllowed\(state,sourceUrl\)/);
  assert.match(research,/localHosts:t\.source\.localHosts/);
- assert.match(research,/newOpportunityItems\(newRecords,matchedNew\.map\(g=>g\.id\)\)/);
- assert.match(discovery,/newOpportunityItems\(newRecords,matchedNew\.map\(g=>g\.id\)\)/);
+ assert.match(research,/newOpportunityItems\(newRecords,matches\)/);
+ assert.match(discovery,/newOpportunityItems\(newRecords,matches\)/);
+ assert.match(research,/const matches=new Map\(newRecords\.map\(g=>\[g\.id,profileMatches\(g,profiles\)\]\)\)/);
+ assert.match(discovery,/const matches=new Map\(newRecords\.map\(g=>\[g\.id,profileMatches\(g,profiles\)\]\)\)/);
  assert.match(discovery,/newGrants:newRecords\.length,newMatchedOpportunities:matchedNew\.length/);
  assert.doesNotMatch(research,/host\.includes\('\.'\+state\.code/);
 });
@@ -164,4 +184,100 @@ test('search matches whole words, every term, and related terms, then ranks titl
  const frozen=sample({id:'frozen',title:'Future prize',deadline:'2044-01-01'});
  listing.searchGrants([frozen],'prize');
  assert.equal(frozen.deadline,'2044-01-01');
+});
+
+test('closed or past-deadline records are never new, in refresh_grants or record_state_opportunities',()=>{
+ const today='2026-10-23T13:00:00Z';
+ assert.equal(isOpenOpportunity({status:'Open',deadline:'2026-10-23'},today),true);
+ assert.equal(isOpenOpportunity({status:'Researched lead · verify cycle',deadline:null},today),true);
+ // Rockefeller State Wildlife Scholarship: Aug 31 deadline had passed when it was reported as new.
+ assert.equal(isOpenOpportunity({status:'Researched lead · verify cycle',deadline:'2026-08-31'},today),false);
+ assert.equal(isOpenOpportunity({status:'Closed',deadline:'2027-01-01'},today),false);
+ assert.equal(isOpenOpportunity({status:'Applications closed',deadline:null},today),false);
+ const research=readFileSync('lib/state-research.ts','utf8'),discovery=readFileSync('lib/discovery.ts','utf8');
+ for(const source of [research,discovery]){assert.match(source,/newRecords=created\.filter\(g=>isOpenOpportunity\(g,now\)\)/);assert.match(source,/closedNotReported:created\.length-newRecords\.length/);}
+ const closed=new RegExp(research.match(/export const CLOSED_EVIDENCE=\/(.+)\/i;/)[1],'i');
+ for(const text of ['Applications are now closed for 2026.','The program is no longer accepting applications.','The deadline has passed.','The application period has ended.'])assert.ok(closed.test(text),text);
+ for(const text of ['Applications open January 1.','Apply before the deadline on December 1.'])assert.ok(!closed.test(text),text);
+});
+
+test('state leads dedupe by normalized URL, not URL plus title',()=>{
+ const n=stateScan.normalizeLeadUrl;
+ assert.equal(n('https://ESD.NY.gov/global-ny/?utm_source=x&b=2&a=1#apply'),'esd.ny.gov/global-ny?a=1&b=2');
+ assert.equal(n('http://www.esd.ny.gov/global-ny'),n('https://esd.ny.gov/global-ny/'));
+ assert.equal(n('https://esd.ny.gov/global-ny?fbclid=abc&gclid=1'),'esd.ny.gov/global-ny');
+ assert.notEqual(n('https://esd.ny.gov/global-ny?id=1'),n('https://esd.ny.gov/global-ny?id=2'));
+ assert.equal(n('javascript:alert(1)'),'');
+ assert.equal(n('not a url'),'');
+ // 'Global NY Grant Fund' vs existing 'Global NY Grant Program' at the same page share one key.
+ const existing={id:'state-ny-business-1',url:'https://esd.ny.gov/global-ny',title:'Global NY Grant Program',sourceUrl:'https://esd.ny.gov/',sourceMode:'Primary-source research'};
+ const reworded={id:'state-ny-business-2',url:'https://esd.ny.gov/global-ny/?utm_campaign=daily',title:'Global NY Grant Fund',sourceUrl:'https://esd.ny.gov/',sourceMode:'Primary-source research'};
+ assert.equal(stateScan.leadKey(existing),stateScan.leadKey(reworded));
+ assert.equal(stateScan.leadKey({...existing,id:'chamber-ny-1',sourceMode:'Small-business guide'}),stateScan.leadKey(existing));
+ // Headings scraped from one page share the page URL, so they stay distinct by title.
+ const page='https://kheaa.com/aid';
+ assert.notEqual(stateScan.leadKey({id:'state-ky-aid-1',url:page,sourceUrl:page,title:'College Access Grant',sourceMode:'State-source program lead'}),stateScan.leadKey({id:'state-ky-aid-2',url:page,sourceUrl:page,title:'Teaching Scholarship',sourceMode:'State-source program lead'}));
+ // Records outside state/chamber leads (e.g. Grants.gov, CareerOneStop) are not URL-deduped.
+ assert.equal(stateScan.leadKey({id:'grantsgov-1',url:'https://esd.ny.gov/global-ny',title:'X',sourceMode:'Live API'}),'');
+ const research=readFileSync('lib/state-research.ts','utf8'),discovery=readFileSync('lib/discovery.ts','utf8');
+ assert.match(research,/leadKey\(/);assert.match(research,/updatedExisting/);
+ assert.match(discovery,/leadKey\(g\)/);
+});
+
+test('new matches carry title, URL, funder, deadline and every matched profile with score',()=>{
+ const g={...seeds[3],id:'student-new',states:['New York'],deadline:null};
+ const profiles=[{...p,id:'student',name:'Synthetic student'},{...p,id:'paused',name:'Paused',alerts:false},{...p,id:'elsewhere',name:'Elsewhere',state:'LA'}];
+ const fits=profileMatches(g,profiles);
+ assert.deepEqual(fits.map(f=>f.profileId),['student']);
+ assert.equal(fits[0].profile,'Synthetic student');
+ assert.ok(fits[0].score>0);
+ const {newItems}=newOpportunityItems([g],new Map([[g.id,fits]]));
+ assert.equal(newItems[0].title,g.title);assert.equal(newItems[0].url,g.url);assert.equal(newItems[0].funder,g.funder);assert.equal(newItems[0].deadline,null);
+ assert.equal(newItems[0].matched,true);assert.equal(newItems[0].matches[0].profile,'Synthetic student');
+});
+
+test('grant_refresh_status reports hoursSinceRefresh and a 26-hour stale flag',()=>{
+ const checked=Date.parse(refreshAt);
+ assert.deepEqual(listing.refreshFreshness(refreshAt,checked+3*3600000),{stale:false,hoursSinceRefresh:3});
+ assert.deepEqual(listing.refreshFreshness(refreshAt,checked+26*3600000),{stale:false,hoursSinceRefresh:26});
+ assert.deepEqual(listing.refreshFreshness(refreshAt,checked+27.25*3600000),{stale:true,hoursSinceRefresh:27.3});
+ assert.deepEqual(listing.refreshFreshness(null,checked),{stale:true,hoursSinceRefresh:null});
+ assert.deepEqual(listing.refreshFreshness('garbage',checked),{stale:true,hoursSinceRefresh:null});
+ const refresh=readFileSync('app/api/refresh/route.ts','utf8');
+ assert.match(refresh,/export async function GET\(\)\{if\(!await isOwner\(\)\)/);
+ assert.match(refresh,/\.\.\.refreshFreshness\(lastRefresh\?\.checkedAt\)/);
+ assert.match(readFileSync('app/mcp/route.ts','utf8'),/name:'grant_refresh_status'[^}]*stale/);
+});
+
+test('upcoming_deadlines lists open matched records within the window, soonest first',()=>{
+ const today='2026-10-23T13:00:00Z';
+ const base={...seeds[3],states:['New York'],status:'Open'};
+ const grants=[
+  {...base,id:'later',title:'Later grant',deadline:'2026-11-20'},
+  {...base,id:'soon',title:'Soon grant',deadline:'2026-10-25'},
+  {...base,id:'today',title:'Today grant',deadline:'2026-10-23'},
+  {...base,id:'past',title:'Past grant',deadline:'2026-10-22'},
+  {...base,id:'closed',title:'Closed grant',deadline:'2026-10-30',status:'Closed'},
+  {...base,id:'far',title:'Far grant',deadline:'2027-01-15'},
+  {...base,id:'rolling',title:'Rolling grant',deadline:null},
+  {...base,id:'la',title:'Louisiana grant',states:['Louisiana'],deadline:'2026-10-28'}];
+ const profiles=[{...p,id:'student',name:'Synthetic student'},{...p,id:'paused',name:'Paused',alerts:false,state:'LA'}];
+ const out=notifications.upcomingDeadlines(grants,profiles,undefined,today);
+ assert.equal(out.days,30);assert.equal(out.asOf,'2026-10-23');
+ assert.deepEqual(out.items.map(i=>[i.title,i.daysLeft]),[['Today grant',0],['Soon grant',2],['Later grant',28]]);
+ assert.equal(out.total,3);
+ assert.deepEqual(Object.keys(out.items[0]).sort(),['daysLeft','deadline','funder','matches','profile','profileId','score','title','url']);
+ assert.equal(out.items[0].profile,'Synthetic student');assert.equal(out.items[0].url,base.url);assert.ok(out.items[0].score>0);
+ assert.deepEqual(notifications.upcomingDeadlines(grants,profiles,5,today).items.map(i=>i.title),['Today grant','Soon grant']);
+ assert.equal(notifications.upcomingDeadlines(grants,profiles,500,today).days,90);
+ assert.equal(notifications.upcomingDeadlines(grants,profiles,0,today).days,1);
+ assert.equal(notifications.upcomingDeadlines(grants,profiles,'45',today).days,45);
+ assert.equal(notifications.upcomingDeadlines(grants,profiles,'abc',today).days,30);
+ assert.equal(notifications.upcomingDeadlines(grants,[{...p,alerts:false}],30,today).total,0);
+ const route=readFileSync('app/mcp/route.ts','utf8');
+ assert.match(route,/name:'upcoming_deadlines'/);
+ assert.match(route,/maximum:UPCOMING_MAX_DAYS,default:UPCOMING_DEFAULT_DAYS/);
+ // The owner check runs before any tools/call dispatch, including upcoming_deadlines.
+ assert.ok(route.indexOf('if(!await isOwner())')>-1&&route.indexOf('if(!await isOwner())')<route.indexOf("if(name==='upcoming_deadlines')"));
+ assert.match(route,/upcomingDeadlines\(await allGrants\(\),profiles,message\.params\?\.arguments\?\.days\)/);
 });

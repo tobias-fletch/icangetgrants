@@ -35,15 +35,29 @@ export function match(g:Grant,p:Profile) {
  return {score:Math.min(g.eligibilityVerified===false?65:90,score),reasons,gaps};
 }
 export const NEW_ITEM_LIMIT=25;
-export type NewOpportunityItem={title:string;url:string;funder:string;deadline:string|null};
-export function newOpportunityItems(grants:Pick<Grant,'id'|'title'|'url'|'funder'|'deadline'>[],matchedIds:Iterable<string>=[],limit=NEW_ITEM_LIMIT){
- const matched=new Set(matchedIds);
- const ordered=[...grants.filter(g=>matched.has(g.id)),...grants.filter(g=>!matched.has(g.id))];
- const items:NewOpportunityItem[]=ordered.map(g=>({title:g.title,url:g.url,funder:g.funder,deadline:g.deadline||null}));
+// Closed records may be stored, but they are never reported as new or as matches.
+export function isOpenOpportunity(g:Pick<Grant,'deadline'|'status'>,now:string|Date=new Date()){
+ const today=(typeof now==='string'?now:now.toISOString()).slice(0,10);
+ if(/\bclosed\b/i.test(g.status||''))return false;
+ return !g.deadline||g.deadline>=today;
+}
+export type ProfileMatch={profileId:string;profile:string;type:string;score:number};
+export function profileMatches(g:Grant,profiles:Profile[]):ProfileMatch[]{
+ return profiles.filter(p=>p.alerts).map(p=>({profileId:p.id,profile:p.name,type:p.type,score:match(g,p).score})).filter(m=>m.score>0).sort((a,b)=>b.score-a.score);
+}
+export type NewOpportunityItem={title:string;url:string;funder:string;deadline:string|null;matched:boolean;matches:ProfileMatch[]};
+// matchedIds may be a list of matched IDs or a map of ID -> profile matches (best score first).
+export function newOpportunityItems(grants:Pick<Grant,'id'|'title'|'url'|'funder'|'deadline'>[],matchedIds:Iterable<string>|Map<string,ProfileMatch[]>=[],limit=NEW_ITEM_LIMIT){
+ const details=matchedIds instanceof Map?matchedIds:new Map([...matchedIds].map(id=>[id,[] as ProfileMatch[]]));
+ const isMatched=(id:string)=>details.has(id)&&(!(matchedIds instanceof Map)||(details.get(id)||[]).length>0);
+ const best=(id:string)=>details.get(id)?.[0]?.score||0;
+ const ordered=[...grants.filter(g=>isMatched(g.id)).sort((a,b)=>best(b.id)-best(a.id)),...grants.filter(g=>!isMatched(g.id))];
+ const items:NewOpportunityItem[]=ordered.map(g=>({title:g.title,url:g.url,funder:g.funder,deadline:g.deadline||null,matched:isMatched(g.id),matches:isMatched(g.id)?details.get(g.id)||[]:[]}));
  return {newItems:items.slice(0,limit),newItemsTotal:items.length};
 }
-export const newOpportunityItemSchema={type:'object',additionalProperties:false,required:['title','url','funder','deadline'],properties:{title:{type:'string'},url:{type:'string'},funder:{type:'string'},deadline:{type:['string','null'],description:'Source-published date, or null when unknown.'}}};
+export const profileMatchSchema={type:'object',additionalProperties:false,required:['profileId','profile','type','score'],properties:{profileId:{type:'string'},profile:{type:'string',description:'Monitored profile name.'},type:{type:'string'},score:{type:'number',description:'Match score (higher is better).'}}};
+export const newOpportunityItemSchema={type:'object',additionalProperties:false,required:['title','url','funder','deadline','matched','matches'],properties:{title:{type:'string'},url:{type:'string'},funder:{type:'string'},deadline:{type:['string','null'],description:'Source-published date, or null when unknown.'},matched:{type:'boolean',description:'True when at least one alert-enabled profile matches.'},matches:{type:'array',description:'Matched profiles with scores, best first. Empty when unmatched.',items:profileMatchSchema}}};
 export const newItemsSchemaProperties={
- newItems:{type:'array',maxItems:NEW_ITEM_LIMIT,description:`Newly discovered or newly persisted opportunities. Profile matches come first. Each item is title, url, funder, and deadline (null when unknown). At most ${NEW_ITEM_LIMIT} items.`,items:newOpportunityItemSchema},
- newItemsTotal:{type:'number',minimum:0,description:'Uncapped number of those new opportunities. Existing count and ID fields are unchanged.'}
+ newItems:{type:'array',maxItems:NEW_ITEM_LIMIT,description:`Newly discovered or newly persisted open opportunities (closed or past-deadline records are never listed). Profile matches come first. Each item is title, url, funder, deadline (null when unknown), matched, and matches (profile, profileId, type, score). At most ${NEW_ITEM_LIMIT} items.`,items:newOpportunityItemSchema},
+ newItemsTotal:{type:'number',minimum:0,description:'Uncapped number of those new open opportunities. Existing count and ID fields are unchanged.'}
 };

@@ -2,6 +2,23 @@ import type { Grant } from './grants';
 import type { StateSource } from './state-registry';
 import { clean, safeUrl, explicitDate } from './source-parsers';
 export type StateReport={code:string;state:string;category:'business'|'aid';status:string;checkedAt:string;url:string;records:number;queries:number;directories:number;error?:string;note:string};
+const TRACKING_PARAM=/^(?:utm_.*|fbclid|gclid|dclid|msclkid|mc_cid|mc_eid|_ga|_gl|ref|ref_src)$/i;
+// Dedupe key for a lead URL: scheme and leading www. ignored, lowercase host, no fragment, no tracking params,
+// remaining query params sorted, no trailing slash. Returns '' for non-http(s) or invalid URLs.
+export function normalizeLeadUrl(value:string){
+ try{const u=new URL(String(value||'').trim());if(u.protocol!=='http:'&&u.protocol!=='https:')return '';
+  const host=u.hostname.toLowerCase().replace(/\.$/,'').replace(/^www\./,'');const port=u.port&&!['80','443'].includes(u.port)?':'+u.port:'';
+  const params=[...u.searchParams.entries()].filter(([k])=>!TRACKING_PARAM.test(k)).sort(([a,av],[b,bv])=>a.localeCompare(b)||av.localeCompare(bv));
+  const query=params.length?'?'+new URLSearchParams(params).toString():'';const path=u.pathname.replace(/\/+$/,'');
+  return host+port+path+query;}catch{return '';}
+}
+// Leads (state scans, state research, U.S. Chamber guide) dedupe by normalized URL so reworded titles update one record.
+// Exception: headings scanned from a single page all share that page URL, so they also key on the heading title.
+export function leadKey(g:Pick<Grant,'id'|'url'|'title'|'sourceUrl'|'sourceMode'>){
+ if(!/^(?:state|chamber)-/.test(g.id))return '';const url=normalizeLeadUrl(g.url);if(!url)return '';
+ if(g.sourceMode==='State-source program lead'&&url===normalizeLeadUrl(g.sourceUrl||''))return url+'|'+g.title.toLowerCase().replace(/\s+/g,' ').trim();
+ return url;
+}
 export function administrativeTitle(title:string){return /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(title)||/\b(?:memo|allocations?|reporting|handbook|manual|regulations?|administrators?|webinars?|applications?|Perkins|institutional|budget|calendar|guidance|advisor|forms?|processing|rule changes|grant initiatives division|notice of funding|return of funds|financial aid office|financial aid counselor)\b/i.test(title);}
 export function pageContent(html:string){const raw=html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]||html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1]||html;return raw.replace(/<(?:nav|header|footer|script|style)\b[^>]*>[\s\S]*?<\/(?:nav|header|footer|script|style)>/gi,' ');}
 export function fundingHub(title:string){return /^(?:all\s+)?(?:grants?|scholarships?|funding|financial aid|financial assistance|incentives|state aid|programs?)(?:\s+(?:and|&|or)\s+(?:grants?|scholarships?|funding|financial aid|incentives|programs?))?(?:\s+(?:programs?|opportunities|resources|information|overview|available|options|for students|for businesses))?[.!]?$/i.test(title)||/^(?:apply for|find|search|explore|view|browse|learn about|types of|available|business|state|student)\s+(?:all\s+)?(?:grants?|scholarships?|funding|financial aid|incentives)(?:\s|$)/i.test(title)||/grants?\s+(?:and|&)\s+(?:loans?|incentives|scholarships)|funding opportunities|grant opportunities|program (?:directory|finder|lookup)|scholarship (?:directory|finder|search)/i.test(title);}

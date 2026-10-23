@@ -2,12 +2,12 @@ import { env } from 'cloudflare:workers';
 import { getDb } from '@/db';
 import { catalog, jobs, workspaces } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { match, newOpportunityItems, seeds } from './grants';
+import { match, newOpportunityItems, seeds, isOpenOpportunity, profileMatches } from './grants';
 import type { Grant, Profile, Workspace } from './grants';
 import { clean, countryName, stateName, interests, explicitDate, parseCalifornia, parseScholarships, parsePrivateAwards, parseBusinessGrants } from './source-parsers';
 import { relevantPrograms, checkedProgram } from './programs';
 import { statePlan } from './state-registry';
-import { scanState } from './state-discovery';
+import { scanState, leadKey } from './state-discovery';
 import type { StateReport } from './state-discovery';
 export async function allGrants():Promise<Grant[]> {const records=(await getDb().select().from(catalog)).map(x=>JSON.parse(x.data) as Grant);const ids=new Set(records.map(x=>x.id));return [...seeds.filter(g=>!ids.has(g.id)),...records];}
 export async function getWorkspace(owner:string):Promise<Workspace>{const rows=await getDb().select().from(workspaces).where(eq(workspaces.owner,owner));return rows[0]?JSON.parse(rows[0].data):{profiles:[],saved:[],seen:''};}
@@ -19,7 +19,9 @@ async function pool<T>(items:T[],limit:number,fn:(item:T)=>Promise<void>){for(le
 export type SourceReport={name:string;status:string;records:number;queries:number;error?:string;note?:string};
 export async function discover(input:Profile[]){
  const profiles=input.filter(p=>p.alerts),db=getDb(),now=new Date().toISOString();const existing=new Map((await db.select().from(catalog)).map(x=>[x.id,JSON.parse(x.data) as Grant]));const staged=new Map<string,Grant>();const reports:SourceReport[]=[];const stateReports:StateReport[]=[];let cursor=0;const old=await db.select().from(jobs).where(eq(jobs.id,'last-refresh'));if(old[0])cursor=JSON.parse(old[0].data).cursor||0;const cycleStart=cursor;
- function stage(g:Grant){const prior=staged.get(g.id)||existing.get(g.id);if(prior){if(g.source==='U.S. Chamber CO—'&&prior.sourceMode==='Official program page')return;g.discovered=prior.discovered;if(g.id.startsWith('cos-')){g.countries=[...new Set([...prior.countries,...g.countries])];g.states=prior.states?.length&&g.states?.length?[...new Set([...prior.states,...g.states])]:[];}}staged.set(g.id,g);}
+ // Leads dedupe by normalized URL: a reworded title adopts the existing record's ID instead of creating a new one.
+ const leads=new Map<string,string>();for(const g of existing.values()){const key=leadKey(g);if(key&&!leads.has(key))leads.set(key,g.id);}
+ function stage(g:Grant){const key=leadKey(g);if(key&&!staged.has(g.id)&&!existing.has(g.id)){const twin=leads.get(key);if(twin)g.id=twin;}const prior=staged.get(g.id)||existing.get(g.id);if(prior&&prior.sourceMode==='Primary-source research'&&g.sourceMode!=='Primary-source research')return;if(key&&!leads.has(key))leads.set(key,g.id);if(prior){if(g.source==='U.S. Chamber CO—'&&prior.sourceMode==='Official program page')return;g.discovered=prior.discovered;if(g.id.startsWith('cos-')){g.countries=[...new Set([...prior.countries,...g.countries])];g.states=prior.states?.length&&g.states?.length?[...new Set([...prior.states,...g.states])]:[];}}staged.set(g.id,g);}
  async function source(name:string,run:(report:SourceReport)=>Promise<void>){const report:SourceReport={name,status:'Connected',records:0,queries:0};reports.push(report);try{await run(report);}catch(e){report.status=report.records?'Partial':'Unavailable';report.error=(e as Error).message;}}
  if(profiles.length)await Promise.all([
  source('Grants.gov',async report=>{
@@ -64,9 +66,10 @@ export async function discover(input:Profile[]){
  ]);
  // Batches keep large source imports within Worker/D1 subrequest limits.
  const records=[...staged.values()];if(!env.DB)throw new Error('Database unavailable');for(let i=0;i<records.length;i+=40){await env.DB.batch(records.slice(i,i+40).map(g=>env.DB!.prepare('INSERT INTO catalog (id,data) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').bind(g.id,JSON.stringify(g))));}
- const newRecords=records.filter(g=>!existing.has(g.id)&&g.status!=='Closed');const combined=new Map(existing);records.forEach(g=>combined.set(g.id,g));
+ // Closed or past-deadline records are stored but never counted or listed as new.
+ const created=records.filter(g=>!existing.has(g.id)),newRecords=created.filter(g=>isOpenOpportunity(g,now));const combined=new Map(existing);records.forEach(g=>combined.set(g.id,g));
  const liveMatches=profiles.map(p=>({profileId:p.id,matches:[...combined.values()].filter(g=>match(g,p).score>0).length,newMatches:newRecords.filter(g=>match(g,p).score>0).length}));
- const matchedNew=newRecords.filter(g=>profiles.some(p=>match(g,p).score>0));
- const result={checkedAt:now,checked:records.length,newGrants:newRecords.length,newMatchedOpportunities:matchedNew.length,...newOpportunityItems(newRecords,matchedNew.map(g=>g.id)),queries:reports.reduce((s,r)=>s+r.queries,0),errors:reports.filter(r=>r.error).map(r=>r.name+': '+r.error),sources:reports,stateReports,profileCoverage:liveMatches,cursor,coverage:'All 50 states have business-funding and student-aid source routes, with per-state scholarship searches. Source-listed program leads, directories, blocked pages, and unconfirmed application cycles are distinguished. California also has a structured live grant feed.'};
+ const matches=new Map(newRecords.map(g=>[g.id,profileMatches(g,profiles)]));const matchedNew=newRecords.filter(g=>matches.get(g.id)!.length);
+ const result={checkedAt:now,checked:records.length,newGrants:newRecords.length,newMatchedOpportunities:matchedNew.length,...newOpportunityItems(newRecords,matches),closedNotReported:created.length-newRecords.length,queries:reports.reduce((s,r)=>s+r.queries,0),errors:reports.filter(r=>r.error).map(r=>r.name+': '+r.error),sources:reports,stateReports,profileCoverage:liveMatches,cursor,coverage:'All 50 states have business-funding and student-aid source routes, with per-state scholarship searches. Source-listed program leads, directories, blocked pages, and unconfirmed application cycles are distinguished. California also has a structured live grant feed.'};
  await db.insert(jobs).values({id:'last-refresh',data:JSON.stringify(result)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(result)}});return result;
 }
