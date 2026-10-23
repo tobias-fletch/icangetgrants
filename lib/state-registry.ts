@@ -56,21 +56,28 @@ const rows=[
  ['WY','https://wyomingbusiness.org/business/financing/','https://wyomingbusiness.org/','https://edu.wyoming.gov/','https://edu.wyoming.gov/']
 ];
 // City and local government hosts, matched as the exact host or a subdomain (www1.nyc.gov matches nyc.gov).
-// Lookalikes such as evilnyc.gov or nyc.gov.evil.com do not match.
-const localHostAllowlist:Record<string,string[]>={NY:['nyc.gov','nyc-business.nyc.gov']};
+// Lookalikes such as evilnyc.gov or nyc.gov.evil.com do not match. NYC Economic Development Corporation
+// (edc.nyc, formerly nycedc.com) administers city business grant programs, so its domains are listed explicitly.
+const localHostAllowlist:Record<string,string[]>={NY:['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']};
 export const stateSources:StateSource[]=rows.map(([code,url,fallback,aid,aidFallback])=>({code,state:STATES[code],business:{url,fallback},aid:{url:aid,fallback:aidFallback},localHosts:localHostAllowlist[code]||[]}));
 export function sourceForState(value:string){return stateSources.find(s=>s.state===stateName(value));}
 function hostOf(value:string){try{const u=new URL(value);if(u.protocol!=='http:'&&u.protocol!=='https:')return '';return u.hostname.toLowerCase().replace(/\.$/,'');}catch{return '';}}
 function registrable(value:string){const raw=value.trim().toLowerCase().replace(/\.$/,'');if(!raw)return '';const host=raw.includes('://')?hostOf(raw):raw;return host.replace(/^www\./,'');}
 function isHostOrChild(host:string,domain:string){const d=registrable(domain);return !!d&&(host===d||host.endsWith('.'+d));}
-// Configured agency hosts stay exact (leading www. ignored). Allowlisted local hosts and official state .gov
-// domains accept the exact host or a subdomain. State .gov identity is a suffix (ny.gov, *.ny.gov, new-york.gov),
-// not a ".ny." substring and not a mention of the state name anywhere in the URL.
+// .gov is restricted to U.S. government registrants, so an already-allowed .gov host vouches for its whole
+// registered .gov domain (commerce.alaska.gov -> alaska.gov, nyc-business.nyc.gov -> nyc.gov). Other hosts get no widening.
+export function govDomain(host:string){const h=registrable(host);if(!h.endsWith('.gov'))return '';const labels=h.split('.');return labels.length>=2?labels.slice(-2).join('.'):'';}
+// Configured agency hosts stay exact (leading www. ignored) unless they are .gov, in which case their registered .gov
+// domain and its subdomains are accepted. Allowlisted local hosts and official state .gov domains accept the exact host
+// or a subdomain. State .gov identity is a suffix (ny.gov, *.ny.gov, new-york.gov), not a ".ny." substring and not a
+// mention of the state name anywhere in the URL.
 export function evidenceHostAllowed(source:StateSource,sourceUrl:string){
  const host=hostOf(sourceUrl);if(!host)return false;const bare=host.replace(/^www\./,'');
  const configured=[source.business.url,source.business.fallback,source.aid.url,source.aid.fallback].map(u=>hostOf(u).replace(/^www\./,'')).filter(Boolean);
  if(configured.includes(bare))return true;
- if((source.localHosts||[]).some(domain=>isHostOrChild(host,domain)))return true;
+ const local=source.localHosts||[];
+ if(local.some(domain=>isHostOrChild(host,domain)))return true;
+ if([...configured,...local].map(govDomain).filter(Boolean).some(domain=>isHostOrChild(host,domain)))return true;
  const code=source.code.toLowerCase(),hyphen=source.state.toLowerCase().replace(/ /g,'-'),compact=source.state.toLowerCase().replace(/ /g,'');
  const gov=[`${code}.gov`,`${hyphen}.gov`];if(compact!==hyphen)gov.push(`${compact}.gov`);
  return gov.some(domain=>isHostOrChild(host,domain));
