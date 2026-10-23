@@ -1,5 +1,5 @@
 export type Profile = { id:string; name:string; type:string; country:string; state:string; keywords:string; goal:number; education:string; details:string; alerts:boolean; city?:string };
-import { countryName, stateName } from './source-parsers';
+import { countryName, stateName, tidyDeadlineLabel } from './source-parsers';
 export type Grant = { id:string; title:string; funder:string; description:string; types:string[]; countries:string[]; tags:string[]; amount:number|null; deadline:string|null; url:string; source:string; requirements:string[]; checked:string; discovered:string; kind:string; live:boolean; applicantCodes?:string[]; states?:string[]; studyLevels?:string[]; deadlineLabel?:string; status?:string; sourceUrl?:string; sourceUpdated?:string; attribution?:string; sourceMode?:string; eligibilityVerified?:boolean; cities?:string[] };
 export type Saved = { profileId:string; grantId:string; status:string; notes:string };
 export type Workspace = { profiles:Profile[]; saved:Saved[]; seen:string };
@@ -30,7 +30,7 @@ export function match(g:Grant,p:Profile) {
  if(p.goal && g.amount && g.amount>=p.goal){score+=10;reasons.push('Published maximum covers your funding goal');}
  if(!p.state) gaps.push('State and local restrictions have not been checked.');
  if(g.kind==='Federal grant') gaps.push('Federal category match is preliminary; review the full notice for location, project, and other restrictions.');
- if(g.deadlineLabel&&!g.deadline)gaps.push('Published window: '+g.deadlineLabel+'. No exact year-specific deadline is confirmed.');
+ if(g.deadlineLabel&&!g.deadline)gaps.push('Published window: '+tidyDeadlineLabel(g.deadlineLabel)+'. No exact year-specific deadline is confirmed.');
  if(g.deadline && new Date(g.deadline+'T23:59:59Z')<new Date()) return {score:0,reasons:['Deadline has passed'],gaps};
  return {score:Math.min(g.eligibilityVerified===false?65:90,score),reasons,gaps};
 }

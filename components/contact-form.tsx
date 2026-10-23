@@ -72,7 +72,7 @@ export function ContactForm() {
   }
 
   return (
-    <form className="contact-form" onSubmit={submit} noValidate>
+    <form className="contact-form" method="post" onSubmit={submit} noValidate>
       <div className="contact-trap" aria-hidden="true">
         <label htmlFor="contact-website">Website</label>
         <input
