@@ -241,7 +241,9 @@ export default function PrivacyPage() {
         When a signed-in refresh or the owner-only catalog refresh runs, the
         server requests public funding pages and APIs. Those requests identify
         the app with the user-agent{" "}
-        <code>Grantwell/1.2 (funding source discovery)</code>. They can include
+        <code>
+          ICanGetGrants/1.2 (funding source discovery; +https://icangetgrants.com)
+        </code>. They can include
         search keywords, applicant category, country, or state derived from
         monitored profiles. They do not include your name, email, or background
         notes.
@@ -301,7 +303,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           You can download the workspace currently loaded in the browser as{" "}
-          <code>grantwell-workspace.json</code> from the application tracker
+          <code>icangetgrants-workspace.json</code> from the application tracker
           and from Preferences &amp; data.
         </li>
         <li>

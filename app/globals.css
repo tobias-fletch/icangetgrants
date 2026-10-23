@@ -27,8 +27,13 @@ footer{font-size:11px;color:#89969f;margin-top:34px;padding:22px 0;line-height:1
 .catalog-freshness{margin:0 0 18px}.catalog-updated{font-size:12px;color:#5d6f78;margin:0 0 10px}.catalog-updated strong{color:#245c43;font-weight:650}.notice.stale{background:#fff4df;border-color:#ead7b0;color:#8a5a22}
 .catalog-loading{max-width:720px;margin:72px auto;padding:0 24px}.catalog-loading h1{font-family:Georgia,'Times New Roman',serif;font-size:32px;font-weight:400;margin:12px 0}.catalog-loading p{color:#718078;line-height:1.6}
 
-.policy-links{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.footer-links{display:flex;align-items:center;gap:14px}
+.policy-links{display:flex;flex-direction:row;align-items:center;gap:14px;flex-wrap:wrap}
+.footer-links{display:flex;flex-direction:row;align-items:center;gap:14px;flex-wrap:wrap}
+.footer-links a{display:inline-flex;align-items:center;min-height:32px}
+/* Top bar grows with its contents so policy/account links are never clipped. */
+.topbar{height:auto;min-height:64px;padding-top:8px;padding-bottom:8px;gap:12px}
+.topbar .top-actions,.topbar .policy-links{justify-content:flex-end}
+@media(max-width:760px){.topbar{height:auto;min-height:52px}.footer-links a{min-height:36px}}
 .footer-links a,.legal-nav a{color:#087d68;font-weight:650;text-decoration:underline;text-underline-offset:2px}
 .legal-page{max-width:820px;margin:0 auto;padding:28px 22px 48px}
 .legal-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
