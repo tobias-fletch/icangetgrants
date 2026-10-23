@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const out = resolve('.sites-runtime/seo-tests'); mkdirSync(out, { recursive: true });
-for (const name of ['source-parsers', 'grants', 'listing', 'site', 'access', 'state-registry', 'workspace-privacy', 'seo-taxonomy', 'seo-index', 'seo-store', 'signin-url', 'save-profile']) {
+for (const name of ['source-parsers', 'grants', 'listing', 'site', 'access', 'state-registry', 'workspace-privacy', 'seo-taxonomy', 'seo-exclude', 'seo-index', 'seo-store', 'signin-url', 'save-profile']) {
   const js = ts.transpileModule(readFileSync(`lib/${name}.ts`, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
     .replace(/from ['"](\.\/[^'"]+)['"]/g, "from '$1.mjs'");
   writeFileSync(`${out}/${name}.mjs`, js);
@@ -19,6 +19,7 @@ const T = await load('seo-taxonomy');
 const Store = await load('seo-store');
 const { signInUrl, safeReturnPath, SIGN_IN_PATH } = await load('signin-url');
 const SP = await load('save-profile');
+const X = await load('seo-exclude');
 const { seeds } = await load('grants');
 
 const fx = JSON.parse(readFileSync('tests/fixtures/catalog-2026-10-23.json', 'utf8'));
@@ -38,7 +39,8 @@ test('the spec §2.4 page set is reproduced from the 2026-10-23 catalog', () => 
   assert.deepEqual(byStatus('review'), ['/grants/louisiana/science-research']);
   assert.equal(site.pages.get('/grants/federal').status, 'duplicate');
   assert.equal(site.pages.get('/grants/awards-competitions').status, 'duplicate');
-  assert.equal(site.pages.get('/grants/louisiana').count, 44);
+  // 47 open Louisiana listings in the export; 3 are dropped by the junk filter (see the exclusion test).
+  assert.equal(site.pages.get('/grants/louisiana').count, 44 - 3);
   assert.equal(site.pages.get('/grants/new-york').count, 4);
   // 21 pages = hub + 19 indexable + louisiana/science-research (served, noindex)
   assert.equal(1 + expected.length + 1, 21);
@@ -240,4 +242,71 @@ test('public listing links drop CareerOneStop search context (same as visitor ca
   const idx = S.buildSeoIndex([g], { checkedAt: '2026-10-23T13:00:00Z' }, new Date('2026-10-23T14:00:00Z'));
   const u = idx.listings['cos-test'].url;
   assert.equal(u, 'https://www.careeronestop.org/Toolkit/Training/find-scholarships.aspx?scholarshipId=123');
+});
+
+test('junk filter drops form/link labels and same-page duplicates only, never catalog rows', async () => {
+  const { isOpenGrant } = await load('listing');
+  const dropped = X.seoExclusions(fx.grants.filter(g => /^https?:/.test(g.url || '') && isOpenGrant(g, now)));
+  assert.deepEqual(dropped.map(e => [e.id, e.reason.split(':')[0]]), [
+    ['state-la-aid-bf175ec8', 'not-a-program'], // "submit a scholarship addition for approval."
+    ['state-la-aid-6d3d1e8', 'not-a-program'], // "Submit a Scholarship"
+    ['state-la-aid-f451965a', 'duplicate-link'], // "GO Grant", same page as "Louisiana GO Grant"
+  ]);
+  assert.equal(dropped[2].keptId, 'state-la-aid-94be99d7');
+  for (const e of dropped) assert.ok(!index.listings[e.id], e.id);
+  assert.ok(index.listings['state-la-aid-94be99d7']);
+  // The catalog itself is untouched.
+  assert.ok(fx.grants.some(g => g.id === 'state-la-aid-6d3d1e8'));
+  // Conservative: real programs with short or generic-looking names, or a shared homepage, stay.
+  for (const t of ['Economics', 'Book Prize', 'Search for Extraterrestrial Intelligence Fellowship', 'Submittable Writers Grant', 'Homeowner Scholarship', 'Apply Yourself Scholarship', 'Louisiana State Grants and Scholarships', 'Home Depot Foundation Grant', 'Register of Copyrights Fellowship', 'Contact Sports Scholarship'])
+    assert.equal(X.isActionTitle(t), false, t);
+  for (const t of ['Submit a Scholarship', 'submit a scholarship addition for approval.', 'Click here', 'Learn more', 'Apply now', 'Sign in'])
+    assert.equal(X.isActionTitle(t), true, t);
+  const base = { kind: 'Scholarship', status: 'Open', deadline: null, funder: 'F' };
+  const sameHome = [
+    { ...base, id: 'a', title: 'Trey Memorial Scholarship', url: 'https://treyslegacy.org/' },
+    { ...base, id: 'b', title: 'Trey Leadership Award', url: 'https://www.treyslegacy.org' },
+  ];
+  assert.deepEqual(X.seoExclusions(sameHome), []); // same link, different programs: both kept
+  const dup = [
+    { ...base, id: 'x', title: 'GO Grant', url: 'https://example.org/go-grant/' },
+    { ...base, id: 'y', title: 'State GO Grant', url: 'https://www.example.org/go-grant' },
+  ];
+  assert.deepEqual(X.seoExclusions(dup).map(e => [e.id, e.keptId]), [['x', 'y']]);
+  // Different CareerOneStop scholarship ids are different pages, even after search context is stripped.
+  const cos = id => ({ ...base, id, title: 'Scholarship', url: `https://www.careeronestop.org/Toolkit/Training/find-scholarships-detail.aspx?keyword=x&scholarshipId=${id}` });
+  assert.deepEqual(X.seoExclusions([cos('1'), cos('2')]), []);
+});
+
+test('stored page data stays well under the D1 row limit (about 1 MB)', () => {
+  const bytes = Buffer.byteLength(JSON.stringify(index), 'utf8');
+  assert.ok(bytes < 1_000_000, `seo-index row is ${bytes} bytes`);
+  // Headroom check: the same data with every listing doubled must still fit, so catalog growth fails here first.
+  const doubled = { ...index, listings: { ...index.listings, ...Object.fromEntries(Object.entries(index.listings).map(([k, v]) => [k + '-copy', v])) } };
+  assert.ok(Buffer.byteLength(JSON.stringify(doubled), 'utf8') < 1_000_000);
+});
+
+test('/grants/louisiana/science-research is held: served noindex,follow and kept out of the sitemap', () => {
+  assert.ok(T.SEO_REVIEW_HOLD.has('/grants/louisiana/science-research'));
+  const p = site.pages.get('/grants/louisiana/science-research');
+  assert.equal(p.status, 'review');
+  assert.ok(p.count >= 3);
+  assert.equal(S.seoContent(site, p).indexable, false);
+  assert.ok(!S.seoSitemapPaths(site).includes(p.path));
+  assert.match(readFileSync('app/grants/seo-data.ts', 'utf8'), /robots: indexable \? \{ index: true, follow: true \} : \{ index: false, follow: true \}/);
+});
+
+test('404s are cached for 5 minutes, pages keep the longer edge cache', () => {
+  assert.equal(S.SEO_NOT_FOUND_CACHE_CONTROL, 'public, max-age=300, s-maxage=300');
+  assert.match(S.SEO_CACHE_CONTROL, /max-age=300, s-maxage=3600/);
+  const cc = p => S.seoCacheControl(site, p);
+  for (const p of ['/grants', '/sitemap.xml', '/grants/louisiana', '/grants/scholarships', '/grants/louisiana/science-research', '/grants/federal'])
+    assert.equal(cc(p), S.SEO_CACHE_CONTROL, p);
+  for (const p of ['/grants/atlantis', '/grants/louisiana/basket-weaving', '/grants/a/b/c', '/grants/wyoming', '/grants/new-york/graduate'])
+    assert.equal(cc(p), S.SEO_NOT_FOUND_CACHE_CONTROL, p);
+  assert.equal(S.seoCacheControl(null, '/grants/louisiana'), S.SEO_NOT_FOUND_CACHE_CONTROL); // data unreadable
+  assert.equal(S.seoRouteImpossible('/grants/atlantis'), true); // no D1 read for unknown slugs
+  assert.equal(S.seoRouteImpossible('/grants/wyoming'), false);
+  const proxy = readFileSync('proxy.ts', 'utf8');
+  assert.match(proxy, /seoCacheControl\(await seoSiteFor\(pathname\), pathname\)/);
 });

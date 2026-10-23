@@ -5,6 +5,7 @@ import { isOpenGrant, effectiveDeadline, deadlineView, formatLastUpdatedEt, refr
 import { seeds, type Grant } from './grants';
 import { SITE_NAME, SITE_ORIGIN } from './site';
 import { stripSearchContext } from './workspace-privacy';
+import { seoExclusions } from './seo-exclude';
 import {
   SEO_CATEGORIES, CATEGORY_BY_SLUG, STATE_BY_SLUG, SEO_THRESHOLD, SEO_JACCARD_CUTOFF, SEO_MAX_ITEMS,
   SEO_NATIONWIDE_SAMPLE, SEO_HUB_SOONEST, SEO_REVIEW_HOLD, categoriesFor, jaccard, seoPath, stateSlug, resolveSeoRoute,
@@ -82,7 +83,10 @@ export function compactListing(g: Grant): SeoListing {
 /** Builds the stored row. Only listings open at build time (and with an http(s) link) are kept. */
 export function buildSeoIndex(grants: Grant[], refresh: { checkedAt?: string } | null, now = new Date()): SeoIndex {
   const listings: Record<string, SeoListing> = {};
-  for (const g of grants) if (g && g.id && httpUrl(g.url) && isOpenGrant(g, now)) listings[g.id] = compactListing(g);
+  const open = grants.filter(g => g && g.id && httpUrl(g.url) && isOpenGrant(g, now));
+  // Junk filter (lib/seo-exclude.ts): link labels and same-page duplicates stay in the catalog but not on these pages.
+  const excluded = new Set(seoExclusions(open).map(e => e.id));
+  for (const g of open) if (!excluded.has(g.id)) listings[g.id] = compactListing(g);
   const index: SeoIndex = {
     version: SEO_INDEX_VERSION, builtAt: now.toISOString(),
     refresh: refresh?.checkedAt ? { checkedAt: refresh.checkedAt } : null, pages: [], listings,
@@ -360,6 +364,31 @@ export function hubContent(site: SeoSite): HubContent {
 }
 
 /** Looks up a page for /grants/<segments>. null → 404 (unknown slug, or 0 open specific listings). */
+// Edge caching for /grants (set in proxy.ts). Pages: 5 min in browsers, 1 h at the edge, serve-stale for a day.
+// 404s: 5 min everywhere, so a page that gains its 3rd open listing shows up within minutes.
+export const SEO_CACHE_CONTROL = 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400';
+export const SEO_NOT_FOUND_CACHE_CONTROL = 'public, max-age=300, s-maxage=300';
+
+/** Path segments under /grants/, or [] for /grants itself; null for anything else. */
+export function seoSegments(pathname: string): string[] | null {
+  if (pathname === '/grants') return [];
+  return pathname.startsWith('/grants/') ? pathname.slice('/grants/'.length).split('/') : null;
+}
+
+/** True when the path can only 404 whatever the data says (unknown slug), so no D1 read is needed. */
+export function seoRouteImpossible(pathname: string): boolean {
+  const segs = seoSegments(pathname);
+  return !!segs && segs.length > 0 && !resolveSeoRoute(segs);
+}
+
+/** Cache-Control for a /grants path or /sitemap.xml. `site` is null when the data could not be read. */
+export function seoCacheControl(site: SeoSite | null, pathname: string): string {
+  const segs = seoSegments(pathname);
+  if (!segs || segs.length === 0) return SEO_CACHE_CONTROL; // /grants hub and /sitemap.xml always render
+  if (seoRouteImpossible(pathname) || !site) return SEO_NOT_FOUND_CACHE_CONTROL;
+  return findSeoPage(site, segs) ? SEO_CACHE_CONTROL : SEO_NOT_FOUND_CACHE_CONTROL;
+}
+
 export function findSeoPage(site: SeoSite, segments: string[]): SeoPage | null {
   const route = resolveSeoRoute(segments);
   if (!route) return null;
