@@ -128,7 +128,7 @@ export function ContactForm() {
       </button>
       {status.kind === "error" && (
         <p className="contact-error" role="alert">
-          {status.text} You can also email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+          {status.text} You can also write to {CONTACT_EMAIL}.
         </p>
       )}
     </form>

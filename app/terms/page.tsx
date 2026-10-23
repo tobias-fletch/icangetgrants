@@ -20,7 +20,7 @@ export default function TermsPage() {
       <p>
         The operator is Tobias Fletcher, Brooklyn, New York. No street address
         is published. Email{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
       </p>
       <p>Effective date: October 23, 2026.</p>
       <p>
@@ -99,7 +99,7 @@ export default function TermsPage() {
       <p>
         You can ask for access to your workspace data, or for deletion of it,
         by emailing{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
         Requests are handled manually. A completed deletion removes that
         account’s workspace and the refresh and scan records tied to that
         account or to its profile ids. During the beta there is no automatic
@@ -194,7 +194,7 @@ export default function TermsPage() {
       <h2>Contact</h2>
       <p>
         Questions about these terms: Tobias Fletcher, Brooklyn, New York,{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
       </p>
     </LegalShell>
   );
