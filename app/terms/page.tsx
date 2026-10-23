@@ -46,8 +46,11 @@ export default function TermsPage() {
       </p>
       <p>
         Sign-in is Sign in with ChatGPT, through <code>/signin-with-chatgpt</code>.
-        The app does not create a separate password. What that sign-in shares
-        with this app is described in the <Link href="/privacy">privacy policy</Link>.
+        When Google sign-in is turned on, you can also continue with Google, and
+        a ChatGPT account can link one Google account so both open the same
+        workspace. The app does not create a separate password. What each
+        sign-in shares with this app is described in the{" "}
+        <Link href="/privacy">privacy policy</Link>.
       </p>
       <p>
         I Can Get Grants is free during the beta. This version has no checkout.
@@ -110,9 +113,12 @@ export default function TermsPage() {
       <h2>Accounts</h2>
       <p>
         Your saved workspace is tied to the account id supplied by Sign in with
-        ChatGPT. Do not attempt to use another person’s account or to read
+        ChatGPT. A Google sign-in opens the linked ChatGPT workspace, or, if
+        that Google account is not linked, a separate workspace of its own.
+        Linking moves that Google workspace into your ChatGPT workspace. Do
+        not attempt to use another person’s account or to read
         another person’s workspace. Catalog administration and the global
-        refresh are limited to the site operator.
+        refresh are limited to the site operator, signed in with ChatGPT.
       </p>
 
       <h2>Acceptable use</h2>
