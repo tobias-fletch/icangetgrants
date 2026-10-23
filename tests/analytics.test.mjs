@@ -6,6 +6,7 @@ import {
   ANALYTICS_PRIVACY_LINE,
   analyticsPrivacyLine,
   cloudflareBeaconAttributes,
+  excludedLibrariesPhrase,
   validSiteVerification,
 } from "../lib/analytics.ts";
 
@@ -39,4 +40,17 @@ test("the privacy-page analytics line ships only with a valid token", () => {
     ANALYTICS_PRIVACY_LINE,
     "We count visits with Cloudflare Web Analytics, which uses no cookies and doesn’t track you across sites.",
   );
+});
+
+test("the privacy page drops 'or analytics' only when the beacon ships", () => {
+  assert.equal(excludedLibrariesPhrase(), "an advertising or analytics library");
+  assert.equal(excludedLibrariesPhrase("short"), "an advertising or analytics library");
+  assert.equal(excludedLibrariesPhrase('abc"><script>'), "an advertising or analytics library");
+  assert.equal(excludedLibrariesPhrase("0123456789abcdef0123456789abcdef"), "an advertising library");
+  // Both privacy-page states follow the same validity check as the beacon tag.
+  for (const value of ["", "short", "0123456789abcdef0123456789abcdef"]) {
+    const ships = cloudflareBeaconAttributes(value) !== null;
+    assert.equal(analyticsPrivacyLine(value) !== null, ships);
+    assert.equal(excludedLibrariesPhrase(value) === "an advertising library", ships);
+  }
 });

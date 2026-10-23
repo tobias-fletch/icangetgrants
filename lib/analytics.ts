@@ -34,3 +34,8 @@ export const ANALYTICS_PRIVACY_LINE =
 export function analyticsPrivacyLine(value: string | null | undefined = CF_ANALYTICS_TOKEN): string | null {
   return validAnalyticsToken(value) ? ANALYTICS_PRIVACY_LINE : null;
 }
+
+/** What the privacy page says the app does not include; drops "or analytics" only when the beacon actually ships. */
+export function excludedLibrariesPhrase(value: string | null | undefined = CF_ANALYTICS_TOKEN): string {
+  return validAnalyticsToken(value) ? "an advertising library" : "an advertising or analytics library";
+}
