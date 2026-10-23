@@ -32,9 +32,12 @@ export function LegalShell({ children }: { children: ReactNode }) {
           Public funding sources. Confirm eligibility and deadlines with the
           provider.
         </span>
-        <nav className="footer-links" aria-label="Policies">
+        <nav className="footer-links" aria-label="Policies and contact">
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
+          <a href="mailto:hello@icangetgrants.com">
+            Contact: hello@icangetgrants.com
+          </a>
         </nav>
         <span>I Can Get Grants · Beta</span>
       </footer>

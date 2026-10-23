@@ -1,4 +1,6 @@
-# I Can Get Grants (Grantwell engine)
+# I Can Get Grants
+
+> The MCP server still reports `serverInfo.name: "grantwell"` (see `app/mcp/route.ts`). That identifier is intentionally unchanged so the connected ChatGPT plugin keeps working.
 
 Public beta funding search with private signed-in workspaces for individuals, students, freelancers, businesses, and nonprofits. Each signed-in account owns its profiles and application notes. Educators can manage separate student profiles.
 

@@ -92,7 +92,7 @@ export default function TermsPage() {
       </p>
       <p>
         You can delete a profile, remove a saved opportunity, and download the
-        workspace loaded in the browser as <code>grantwell-workspace.json</code>.
+        workspace loaded in the browser as <code>icangetgrants-workspace.json</code>.
         Signing out does not erase a saved workspace. The app has no button that
         deletes the account itself.
       </p>
