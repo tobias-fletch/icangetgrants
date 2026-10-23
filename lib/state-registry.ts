@@ -1,6 +1,8 @@
 import { STATES, stateName, countryName } from './source-parsers';
 import type { Profile } from './grants';
-export type StateSource={code:string;state:string;business:{url:string;fallback:string};aid:{url:string;fallback:string};localHosts:string[]};
+export type StateCategory='business'|'aid'|'arts';
+export const STATE_CATEGORIES:StateCategory[]=['business','aid','arts'];
+export type StateSource={code:string;state:string;business:{url:string;fallback:string};aid:{url:string;fallback:string};arts:{url:string;fallback:string};localHosts:string[]};
 // Official state agencies or state-designated development/aid authorities.
 // Deep links have agency-home fallbacks; reachability is checked at runtime.
 const rows=[
@@ -55,15 +57,72 @@ const rows=[
  ['WI','https://wedc.org/','https://wedc.org/','https://heab.state.wi.us/programs.html','https://heab.state.wi.us/'],
  ['WY','https://wyomingbusiness.org/business/financing/','https://wyomingbusiness.org/','https://edu.wyoming.gov/','https://edu.wyoming.gov/']
 ];
+// Official state arts agencies (the state arts council or its host department), used for Individual and Freelancer
+// profiles. Each URL was reachable on 2026-10-23 except AK, GA, NH, NY and VT (403 to server requests) and OH (404 to
+// server requests); those report Browser review at runtime and are researched in a normal browser.
+const artsRows:Record<string,string>={
+ AL:'https://arts.alabama.gov/',
+ AK:'https://arts.alaska.gov/',
+ AZ:'https://azarts.gov/',
+ AR:'https://www.arkansasheritage.com/arkansas-art-council/about/aac-grants',
+ CA:'https://arts.ca.gov/',
+ CO:'https://oedit.colorado.gov/colorado-creative-industries',
+ CT:'https://portal.ct.gov/decdartsportal',
+ DE:'https://arts.delaware.gov/',
+ FL:'https://dos.fl.gov/cultural/',
+ GA:'https://gaarts.org/',
+ HI:'https://sfca.hawaii.gov/',
+ ID:'https://arts.idaho.gov/',
+ IL:'https://arts.illinois.gov/',
+ IN:'https://www.in.gov/arts/',
+ IA:'https://opportunityiowa.gov/community/arts-culture',
+ KS:'https://www.kansascommerce.gov/program/kansas-creative-arts-and-industries-commission-kcaic/',
+ KY:'https://artscouncil.ky.gov/',
+ LA:'https://www.crt.state.la.us/cultural-development/arts/',
+ ME:'https://mainearts.maine.gov/',
+ MD:'https://msac.org/',
+ MA:'https://massculturalcouncil.org/',
+ MI:'https://www.michiganbusiness.org/arts/',
+ MN:'https://www.arts.state.mn.us/',
+ MS:'https://arts.ms.gov/',
+ MO:'https://missouriartscouncil.org/',
+ MT:'https://art.mt.gov/',
+ NE:'https://www.artscouncil.nebraska.gov/',
+ NV:'https://nvculture.org/nevadaartscouncil/',
+ NH:'https://www.dncr.nh.gov/arts',
+ NJ:'https://nj.gov/state/njsca/',
+ NM:'https://nmarts.org/',
+ NY:'https://arts.ny.gov/',
+ NC:'https://www.ncarts.org/',
+ ND:'https://www.arts.nd.gov/',
+ OH:'https://oac.ohio.gov/',
+ OK:'https://oklahoma.gov/arts.html',
+ OR:'https://www.oregon.gov/biz/aboutus/artscommission/Pages/default.aspx',
+ PA:'https://www.pa.gov/agencies/coa',
+ RI:'https://arts.ri.gov/',
+ SC:'https://www.southcarolinaarts.com/',
+ SD:'https://www.sd.gov/sdac',
+ TN:'https://tnartscommission.org/',
+ TX:'https://www.arts.texas.gov/',
+ UT:'https://artsandmuseums.utah.gov/',
+ VT:'https://www.vermontartscouncil.org/',
+ VA:'https://vca.virginia.gov/',
+ WA:'https://www.arts.wa.gov/',
+ WV:'https://wvculture.org/agencies/arts/',
+ WI:'https://artsboard.wisconsin.gov/Pages/home.aspx',
+ WY:'https://wyoarts.state.wy.us/'
+};
 // City and local government hosts, matched as the exact host or a subdomain (www1.nyc.gov matches nyc.gov).
 // Lookalikes such as evilnyc.gov or nyc.gov.evil.com do not match. NYC Economic Development Corporation
 // (edc.nyc, formerly nycedc.com) administers city business grant programs, so its domains are listed explicitly.
 const localHostAllowlist:Record<string,string[]>={NY:['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']};
-export const stateSources:StateSource[]=rows.map(([code,url,fallback,aid,aidFallback])=>({code,state:STATES[code],business:{url,fallback},aid:{url:aid,fallback:aidFallback},localHosts:localHostAllowlist[code]||[]}));
+export const stateSources:StateSource[]=rows.map(([code,url,fallback,aid,aidFallback])=>({code,state:STATES[code],business:{url,fallback},aid:{url:aid,fallback:aidFallback},arts:{url:artsRows[code],fallback:artsRows[code]},localHosts:localHostAllowlist[code]||[]}));
 export function sourceForState(value:string){return stateSources.find(s=>s.state===stateName(value));}
 function hostOf(value:string){try{const u=new URL(value);if(u.protocol!=='http:'&&u.protocol!=='https:')return '';return u.hostname.toLowerCase().replace(/\.$/,'');}catch{return '';}}
 function registrable(value:string){const raw=value.trim().toLowerCase().replace(/\.$/,'');if(!raw)return '';const host=raw.includes('://')?hostOf(raw):raw;return host.replace(/^www\./,'');}
 function isHostOrChild(host:string,domain:string){const d=registrable(domain);return !!d&&(host===d||host.endsWith('.'+d));}
+export function bareHost(value:string){return hostOf(value);}
+export function hostMatchesDomain(host:string,domain:string){return isHostOrChild(host.toLowerCase().replace(/\.$/,''),domain);}
 // .gov is restricted to U.S. government registrants, so an already-allowed .gov host vouches for its whole
 // registered .gov domain (commerce.alaska.gov -> alaska.gov, nyc-business.nyc.gov -> nyc.gov). Other hosts get no widening.
 export function govDomain(host:string){const h=registrable(host);if(!h.endsWith('.gov'))return '';const labels=h.split('.');return labels.length>=2?labels.slice(-2).join('.'):'';}
@@ -73,7 +132,7 @@ export function govDomain(host:string){const h=registrable(host);if(!h.endsWith(
 // mention of the state name anywhere in the URL.
 export function evidenceHostAllowed(source:StateSource,sourceUrl:string){
  const host=hostOf(sourceUrl);if(!host)return false;const bare=host.replace(/^www\./,'');
- const configured=[source.business.url,source.business.fallback,source.aid.url,source.aid.fallback].map(u=>hostOf(u).replace(/^www\./,'')).filter(Boolean);
+ const configured=[source.business.url,source.business.fallback,source.aid.url,source.aid.fallback,source.arts.url,source.arts.fallback].map(u=>hostOf(u).replace(/^www\./,'')).filter(Boolean);
  if(configured.includes(bare))return true;
  const local=source.localHosts||[];
  if(local.some(domain=>isHostOrChild(host,domain)))return true;
@@ -82,4 +141,7 @@ export function evidenceHostAllowed(source:StateSource,sourceUrl:string){
  const gov=[`${code}.gov`,`${hyphen}.gov`];if(compact!==hyphen)gov.push(`${compact}.gov`);
  return gov.some(domain=>isHostOrChild(host,domain));
 }
-export function statePlan(profiles:Profile[]){const tasks=new Map<string,{source:StateSource;category:'business'|'aid'}>();for(const p of profiles){if(!p.alerts||countryName(p.country)!=='United States')continue;const source=sourceForState(p.state);if(!source)continue;if(['Small business','Freelancer','Nonprofit'].includes(p.type))tasks.set(source.code+'-business',{source,category:'business'});if(p.type==='Student')tasks.set(source.code+'-aid',{source,category:'aid'});}return [...tasks.values()];}
+// Every monitored profile (see monitoredProfiles) gets state routes; alerts only control who is notified.
+// Small business, Freelancer and Nonprofit profiles get business tasks, Students get aid, and Individual and
+// Freelancer profiles (artists, writers and other creatives) get state arts agency tasks.
+export function statePlan(profiles:Profile[]){const tasks=new Map<string,{source:StateSource;category:StateCategory}>();for(const p of profiles){if(countryName(p.country)!=='United States')continue;const source=sourceForState(p.state);if(!source)continue;if(['Small business','Freelancer','Nonprofit'].includes(p.type))tasks.set(source.code+'-business',{source,category:'business'});if(p.type==='Student')tasks.set(source.code+'-aid',{source,category:'aid'});if(['Individual','Freelancer'].includes(p.type))tasks.set(source.code+'-arts',{source,category:'arts'});}return [...tasks.values()];}
