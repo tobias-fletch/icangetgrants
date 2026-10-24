@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_ORIGIN, SITE_TITLE } from "@/lib/site";
+import { GOOGLE_SITE_VERIFICATION, cloudflareBeaconAttributes, validSiteVerification } from "@/lib/analytics";
 import "./globals.css";
 
 const socialImage = {
@@ -8,6 +9,9 @@ const socialImage = {
   height: 630,
   alt: `${SITE_NAME} — Find funding that fits you`,
 };
+
+const googleSiteVerification = validSiteVerification(GOOGLE_SITE_VERIFICATION);
+const cloudflareBeacon = cloudflareBeaconAttributes();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
@@ -31,9 +35,13 @@ export const metadata: Metadata = {
     images: [socialImage],
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.ico",
   },
+  ...(googleSiteVerification ? { verification: { google: googleSiteVerification } } : {}),
 };
 
 export default function RootLayout({
@@ -43,7 +51,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        {cloudflareBeacon ? <script {...cloudflareBeacon} /> : null}
+      </body>
     </html>
   );
 }

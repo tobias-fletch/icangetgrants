@@ -1,5 +1,6 @@
 import { statePlan } from './state-registry';
 import type { Grant, Profile } from './grants';
+import { tidyTitle } from './source-parsers';
 
 // What GET /api/workspace (and the home page render) may show to someone who is not the catalog owner.
 // The last-refresh job is built from every account's monitored profiles: per-source status ("Not needed"),
@@ -46,6 +47,8 @@ export function stripSearchContext(url: string): string {
 export function visitorGrants(grants: Grant[]): Grant[] {
   return grants.map(g => {
     const url = typeof g.url === 'string' ? stripSearchContext(g.url) : g.url;
-    return url === g.url ? g : { ...g, url };
+    // Older stored directory titles can end in a colon ("Breva Thrive Grant:"); show them without it.
+    const title = typeof g.title === 'string' ? tidyTitle(g.title) || g.title : g.title;
+    return url === g.url && title === g.title ? g : { ...g, url, title };
   });
 }

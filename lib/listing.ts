@@ -1,6 +1,8 @@
 // Search, deadline display, and catalog freshness. These rules never write
 // back onto stored grant records.
 
+import { tidyDeadlineLabel } from './source-parsers';
+
 export const FAR_FUTURE_YEARS = 5;
 export const STALE_AFTER_MS = 26 * 60 * 60 * 1000;
 
@@ -221,7 +223,7 @@ export function deadlineView(grant: { deadline: string | null; deadlineLabel?: s
   if (isFarFutureDeadline(grant.deadline, now)) return { text: 'No fixed deadline', iso: null, farFuture: true };
   const iso = effectiveDeadline(grant.deadline, now);
   if (iso) return { text: '', iso, farFuture: false };
-  return { text: grant.deadlineLabel?.trim() || fallback, iso: null, farFuture: false };
+  return { text: grant.deadlineLabel ? tidyDeadlineLabel(grant.deadlineLabel, 'See listing') : fallback, iso: null, farFuture: false };
 }
 
 export function isOpenGrant(grant: { status?: string | null; deadline: string | null }, now = new Date()): boolean {
