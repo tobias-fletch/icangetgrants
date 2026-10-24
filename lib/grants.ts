@@ -1,5 +1,5 @@
 export type Profile = { id:string; name:string; type:string; country:string; state:string; keywords:string; goal:number; education:string; details:string; alerts:boolean; city?:string };
-import { countryName, stateName, tidyDeadlineLabel } from './source-parsers';
+import { countryName, easternDay, stateName, tidyDeadlineLabel } from './source-parsers';
 export type Grant = { id:string; title:string; funder:string; description:string; types:string[]; countries:string[]; tags:string[]; amount:number|null; deadline:string|null; url:string; source:string; requirements:string[]; checked:string; discovered:string; kind:string; live:boolean; applicantCodes?:string[]; states?:string[]; studyLevels?:string[]; deadlineLabel?:string; status?:string; sourceUrl?:string; sourceUpdated?:string; attribution?:string; sourceMode?:string; eligibilityVerified?:boolean; cities?:string[] };
 export type Saved = { profileId:string; grantId:string; status:string; notes:string };
 export type Workspace = { profiles:Profile[]; saved:Saved[]; seen:string };
@@ -31,13 +31,13 @@ export function match(g:Grant,p:Profile) {
  if(!p.state) gaps.push('State and local restrictions have not been checked.');
  if(g.kind==='Federal grant') gaps.push('Federal category match is preliminary; review the full notice for location, project, and other restrictions.');
  if(g.deadlineLabel&&!g.deadline)gaps.push('Published window: '+tidyDeadlineLabel(g.deadlineLabel)+'. No exact year-specific deadline is confirmed.');
- if(g.deadline && new Date(g.deadline+'T23:59:59Z')<new Date()) return {score:0,reasons:['Deadline has passed'],gaps};
+ if(g.deadline && /^\d{4}-\d{2}-\d{2}/.test(g.deadline) && g.deadline.slice(0,10)<easternDay()) return {score:0,reasons:['Deadline has passed'],gaps};
  return {score:Math.min(g.eligibilityVerified===false?65:90,score),reasons,gaps};
 }
 export const NEW_ITEM_LIMIT=25;
 // Closed records may be stored, but they are never reported as new or as matches.
 export function isOpenOpportunity(g:Pick<Grant,'deadline'|'status'>,now:string|Date=new Date()){
- const today=(typeof now==='string'?now:now.toISOString()).slice(0,10);
+ const today=easternDay(now);
  if(/\bclosed\b/i.test(g.status||''))return false;
  return !g.deadline||g.deadline>=today;
 }
@@ -48,9 +48,18 @@ export type ProfileMatch={profileId:string;profile:string;type:string;score:numb
 export function profileMatches(g:Grant,profiles:Profile[]):ProfileMatch[]{
  return profiles.filter(p=>p.alerts).map(p=>({profileId:p.id,profile:p.name,type:p.type,score:match(g,p).score})).filter(m=>m.score>0).sort((a,b)=>b.score-a.score);
 }
+// Every match pushed to an Updates inbox (refresh_grants / record_state_opportunities) must carry a title and a URL.
+export function missingInboxFields(g:{title?:unknown;url?:unknown}):string[]{
+ const missing:string[]=[];
+ if(typeof g.title!=='string'||!g.title.trim())missing.push('title');
+ if(typeof g.url!=='string'||!/^https?:\/\/[^\s/]+\.[^\s]+$/i.test(g.url.trim()))missing.push('URL');
+ return missing;
+}
+export function inboxFieldsError(label:string,missing:string[]){return `${label} is missing a ${missing.join(' and a ')}. Every match sent to the Updates inbox needs both a title and a URL.`;}
 export type NewOpportunityItem={title:string;url:string;funder:string;deadline:string|null;matched:boolean;matches:ProfileMatch[]};
 // matchedIds may be a list of matched IDs or a map of ID -> profile matches (best score first).
 export function newOpportunityItems(grants:Pick<Grant,'id'|'title'|'url'|'funder'|'deadline'>[],matchedIds:Iterable<string>|Map<string,ProfileMatch[]>=[],limit=NEW_ITEM_LIMIT){
+ for(const g of grants){const missing=missingInboxFields(g);if(missing.length)throw new Error(inboxFieldsError(`New match "${(typeof g.title==='string'&&g.title.trim())||g.id||'unknown'}"`,missing));}
  const details=matchedIds instanceof Map?matchedIds:new Map([...matchedIds].map(id=>[id,[] as ProfileMatch[]]));
  const isMatched=(id:string)=>details.has(id)&&(!(matchedIds instanceof Map)||(details.get(id)||[]).length>0);
  const best=(id:string)=>details.get(id)?.[0]?.score||0;

@@ -65,3 +65,13 @@ export function parseBusinessGrants(html:string,now:string):Grant[]{
  }
  return records;
 }
+
+// Deadlines are calendar days in America/New_York: a listing stays live through its deadline day there.
+const ET_YMD=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
+export function easternDay(now:string|Date=new Date()):string{
+ if(typeof now==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(now))return now;
+ const d=typeof now==='string'?new Date(now):now;
+ if(Number.isNaN(d.getTime()))return ET_YMD.format(new Date());
+ const parts=ET_YMD.formatToParts(d);const get=(t:string)=>parts.find(p=>p.type===t)?.value||'';
+ return `${get('year')}-${get('month')}-${get('day')}`;
+}
