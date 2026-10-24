@@ -31,7 +31,7 @@ export default function PrivacyPage() {
         is published. Questions, access requests, and deletion requests go to{" "}
         hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
       </p>
-      <p>Effective date: October 23, 2026.</p>
+      <p>Effective date: October 24, 2026.</p>
       <p>
         The law of the State of New York governs this policy. Disputes are
         heard in the state or federal courts located in New York.
@@ -394,7 +394,7 @@ export default function PrivacyPage() {
       <p>
         The contact form sends only the name, email address, and message you
         type, when you press Send. It goes through a small form handler on
-        tobiasfletcher.com, hosted by Netlify, which emails it to the operator
+        tobiasfletcher.com, hosted by Cloudflare, which emails it to the operator
         through Google (Gmail) and sends you one short confirmation with a copy
         of your message. A one-way hash of your IP address and email address
         is used to count messages per day and limit abuse. Messages are used
