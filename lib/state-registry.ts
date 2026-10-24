@@ -117,6 +117,9 @@ const artsRows:Record<string,string>={
 // (edc.nyc, formerly nycedc.com) administers city business grant programs, so its domains are listed explicitly.
 const localHostAllowlist:Record<string,string[]>={NY:['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']};
 export const stateSources:StateSource[]=rows.map(([code,url,fallback,aid,aidFallback])=>({code,state:STATES[code],business:{url,fallback},aid:{url:aid,fallback:aidFallback},arts:{url:artsRows[code],fallback:artsRows[code]},localHosts:localHostAllowlist[code]||[]}));
+// Never show a misleading "0 source routes checked": with no count (signed out, not yet scanned, or unavailable)
+// the Sources tab says routes are checked daily instead.
+export function sourceRoutesLabel(count:unknown){return typeof count==='number'&&Number.isFinite(count)&&count>0?`${Math.floor(count)} source routes checked`:'Source routes are checked daily';}
 export function sourceForState(value:string){return stateSources.find(s=>s.state===stateName(value));}
 function hostOf(value:string){try{const u=new URL(value);if(u.protocol!=='http:'&&u.protocol!=='https:')return '';return u.hostname.toLowerCase().replace(/\.$/,'');}catch{return '';}}
 function registrable(value:string){const raw=value.trim().toLowerCase().replace(/\.$/,'');if(!raw)return '';const host=raw.includes('://')?hostOf(raw):raw;return host.replace(/^www\./,'');}
