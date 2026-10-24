@@ -29,7 +29,7 @@ export function SeoShell({ path, children }: { path: string; children: ReactNode
           <Link href="/grants">Browse by state &amp; category</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
-          <a href="mailto:hello@icangetgrants.com">Contact: hello@icangetgrants.com</a>
+          <Link href="/contact">Contact</Link>
         </nav>
         <span>{SITE_NAME} · Beta</span>
       </footer>
