@@ -10,6 +10,8 @@ import { statePlan } from './state-registry';
 import { scanState, leadKey } from './state-discovery';
 import { FetchBudget, budgetedFetch, isBudgetError, orderScanRoutes, RUN_FETCH_LIMIT, SOURCE_FETCH_CAPS, PAGE_SCAN_MIN_FETCHES } from './fetch-budget';
 import type { StateReport } from './state-discovery';
+import { writeSeoIndex, type D1Like } from './seo-store';
+import { publicRefresh } from './access';
 export async function allGrants():Promise<Grant[]> {const records=(await getDb().select().from(catalog)).map(x=>JSON.parse(x.data) as Grant);const ids=new Set(records.map(x=>x.id));return [...seeds.filter(g=>!ids.has(g.id)),...records];}
 export async function getWorkspace(owner:string):Promise<Workspace>{const rows=await getDb().select().from(workspaces).where(eq(workspaces.owner,owner));return rows[0]?JSON.parse(rows[0].data):{profiles:[],saved:[],seen:''};}
 export async function saveWorkspace(owner:string,data:Workspace){await getDb().insert(workspaces).values({owner,data:JSON.stringify(data)}).onConflictDoUpdate({target:workspaces.owner,set:{data:JSON.stringify(data)}});}
@@ -86,5 +88,8 @@ export async function discover(input:Profile[]){
  const liveMatches=profiles.map(p=>({profileId:p.id,matches:[...combined.values()].filter(g=>match(g,p).score>0).length,newMatches:newRecords.filter(g=>match(g,p).score>0).length}));
  const matches=new Map(newRecords.map(g=>[g.id,profileMatches(g,profiles)]));const matchedNew=newRecords.filter(g=>matches.get(g.id)!.length);
  const result={checkedAt:now,checked:records.length,newGrants:newRecords.length,newMatchedOpportunities:matchedNew.length,...newOpportunityItems(newRecords,matches),closedNotReported:created.length-newRecords.length,queries:reports.reduce((s,r)=>s+r.queries,0),errors:reports.filter(r=>r.error).map(r=>r.name+': '+r.error),sources:reports,stateReports,profileCoverage:liveMatches,fetchBudget:{limit:RUN_FETCH_LIMIT,used:budget.used,pageScanFetches,pageScanMinimum:PAGE_SCAN_MIN_FETCHES,caps:SOURCE_FETCH_CAPS},deferredRoutes,monitoredProfiles:profiles.length,alertProfiles:profiles.filter(p=>p.alerts).length,cursor,coverage:'All 50 states have business-funding, student-aid and state arts council source routes, with per-state scholarship searches. Source-listed program leads, directories, blocked pages, and unconfirmed application cycles are distinguished. California also has a structured live grant feed.'};
- await db.insert(jobs).values({id:'last-refresh',data:JSON.stringify(result)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(result)}});return result;
+ await db.insert(jobs).values({id:'last-refresh',data:JSON.stringify(result)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(result)}});
+ // One precomputed row for the /grants SEO pages, so each page view is a single D1 read (see lib/seo-store.ts).
+ try{await writeSeoIndex(env.DB as unknown as D1Like,[...combined.values()],publicRefresh(result));}catch(e){console.error('seo-index write failed',e instanceof Error?e.message:'unknown');}
+ return result;
 }
