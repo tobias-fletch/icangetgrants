@@ -6,6 +6,13 @@ export const metadata: Metadata = {
   description:
     "Draft terms for the I Can Get Grants public beta. Listings are informational; verify eligibility and deadlines with the provider. Pending review. Not legal advice.",
   alternates: { canonical: "https://icangetgrants.com/terms" },
+  openGraph: {
+    title: "Terms of use (draft) — I Can Get Grants",
+    url: "https://icangetgrants.com/terms",
+    siteName: "I Can Get Grants",
+    type: "website",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "I Can Get Grants — Find funding that fits you" }],
+  },
 };
 
 export default function TermsPage() {
