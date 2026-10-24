@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import { Leaf } from 'lucide-react';
 import { SITE_NAME } from '@/lib/site';
 import { listingView, jsonLdScript, type SeoListing, type Crumb } from '@/lib/seo-index';
@@ -12,13 +11,13 @@ export function SeoShell({ path, children }: { path: string; children: ReactNode
   return (
     <div className="seo-page">
       <header className="legal-top seo-top">
-        <Link className="brand" href="/" aria-label={`${SITE_NAME} home`}>
+        <a className="brand" href="/" aria-label={`${SITE_NAME} home`}>
           <span className="brandmark"><Leaf size={18} /></span>
           {SITE_NAME}<span className="branddot">.</span>
-        </Link>
+        </a>
         <nav className="legal-nav seo-nav" aria-label="Site">
-          <Link href="/">Search funding</Link>
-          <Link href="/grants">Browse by state &amp; category</Link>
+          <a href="/">Search funding</a>
+          <a href="/grants">Browse by state &amp; category</a>
           <HeaderAccountLink returnTo={path} />
         </nav>
       </header>
@@ -26,10 +25,10 @@ export function SeoShell({ path, children }: { path: string; children: ReactNode
       <footer>
         <span>Public funding sources. Confirm eligibility and deadlines with the provider.</span>
         <nav className="footer-links" aria-label="Policies and contact">
-          <Link href="/grants">Browse by state &amp; category</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/contact">Contact</Link>
+          <a href="/grants">Browse by state &amp; category</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a href="/contact">Contact</a>
         </nav>
         <span>{SITE_NAME} · Beta</span>
       </footer>
@@ -46,7 +45,7 @@ export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
     <nav className="seo-crumbs" aria-label="Breadcrumb">
       <ol>
         {crumbs.map((c, i) => (
-          <li key={c.path}>{i === crumbs.length - 1 ? <span aria-current="page">{c.name}</span> : <Link href={c.path}>{c.name}</Link>}</li>
+          <li key={c.path}>{i === crumbs.length - 1 ? <span aria-current="page">{c.name}</span> : <a href={c.path}>{c.name}</a>}</li>
         ))}
       </ol>
     </nav>
@@ -89,7 +88,7 @@ export function LinkGrid({ title, links }: { title: string; links: { path: strin
     <section className="seo-related" aria-label={title}>
       <h2>{title}</h2>
       <ul>
-        {links.map(l => <li key={l.path}><Link href={l.path}>{l.label}</Link> <span className="seo-count">{l.count}</span></li>)}
+        {links.map(l => <li key={l.path}><a href={l.path}>{l.label}</a> <span className="seo-count">{l.count}</span></li>)}
       </ul>
     </section>
   );

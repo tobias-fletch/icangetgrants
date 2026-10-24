@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Confirm, LegalShell } from "@/components/legal-page";
 
 export const metadata: Metadata = {
@@ -47,7 +46,7 @@ export default function TermsPage() {
       <p>
         Sign-in is Sign in with ChatGPT, through <code>/signin-with-chatgpt</code>.
         The app does not create a separate password. What that sign-in shares
-        with this app is described in the <Link href="/privacy">privacy policy</Link>.
+        with this app is described in the <a href="/privacy">privacy policy</a>.
       </p>
       <p>
         I Can Get Grants is free during the beta. This version has no checkout.
@@ -103,7 +102,7 @@ export default function TermsPage() {
         Requests are handled manually. A completed deletion removes that
         account’s workspace and the refresh and scan records tied to that
         account or to its profile ids. During the beta there is no automatic
-        retention period. The <Link href="/privacy">privacy policy</Link>{" "}
+        retention period. The <a href="/privacy">privacy policy</a>{" "}
         describes what is stored.
       </p>
 
