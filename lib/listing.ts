@@ -1,7 +1,7 @@
 // Search, deadline display, and catalog freshness. These rules never write
 // back onto stored grant records.
 
-import { tidyDeadlineLabel } from './source-parsers';
+import { easternDay, tidyDeadlineLabel } from './source-parsers';
 
 export const FAR_FUTURE_YEARS = 5;
 export const STALE_AFTER_MS = 26 * 60 * 60 * 1000;
@@ -199,8 +199,9 @@ function shiftYears(day: string, years: number): string {
   return new Date(Date.UTC(year + years, month - 1, date)).toISOString().slice(0, 10);
 }
 
+// Today's date in America/New_York, so a listing stays live through its whole deadline day there.
 export function calendarDay(now = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return easternDay(now);
 }
 
 export function isFarFutureDeadline(deadline: string | null | undefined, now = new Date()): boolean {
@@ -231,6 +232,15 @@ export function isOpenGrant(grant: { status?: string | null; deadline: string | 
   const deadline = effectiveDeadline(grant.deadline, now);
   if (!deadline) return true;
   return deadline >= calendarDay(now);
+}
+
+// Read-time view of a stored record: a fixed deadline that has passed (New York date) is shown as closed and not
+// live. Stored data is never rewritten; rolling, no-deadline and far-future placeholder deadlines are unchanged.
+export function withDeadlineStatus<T extends { status?: string | null; deadline: string | null; live?: boolean | null }>(grant: T, now = new Date()): T {
+  const deadline = effectiveDeadline(grant.deadline, now);
+  if (!deadline || deadline >= calendarDay(now)) return grant;
+  if (grant.status === 'Closed' && grant.live !== true) return grant;
+  return { ...grant, status: 'Closed', live: false };
 }
 
 export function isRefreshStale(checkedAt: string | null | undefined, now = Date.now()): boolean {

@@ -1,7 +1,7 @@
 // The precomputed "seo-index": one compact JSON row (jobs id 'seo-index') written once per catalog refresh,
 // plus the pure functions that turn it into the /grants pages at request time (spec §4 rule 2).
 // Pure module, relative imports only, so tests can transpile it.
-import { isOpenGrant, effectiveDeadline, deadlineView, formatLastUpdatedEt, refreshFreshness } from './listing';
+import { calendarDay, isOpenGrant, effectiveDeadline, deadlineView, formatLastUpdatedEt, refreshFreshness } from './listing';
 import { seeds, type Grant } from './grants';
 import { SITE_NAME, SITE_ORIGIN } from './site';
 import { stripSearchContext } from './workspace-privacy';
@@ -239,8 +239,8 @@ function topCounts(values: string[], n: number): string[] {
 }
 
 function dataSentences(list: SeoListing[], now: Date): string[] {
-  const today = now.toISOString().slice(0, 10);
-  const in30 = new Date(now.getTime() + 30 * 864e5).toISOString().slice(0, 10);
+  const today = calendarDay(now);
+  const in30 = calendarDay(new Date(now.getTime() + 30 * 864e5));
   const fixed = list.filter(l => effectiveDeadline(l.deadline, now));
   const soon = fixed.filter(l => { const d = effectiveDeadline(l.deadline, now)!; return d >= today && d <= in30; }).length;
   const confirmedOpen = list.filter(l => l.status === 'Open').length;

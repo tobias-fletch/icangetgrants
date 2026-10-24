@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { publicRefresh } from './access';
 import { allGrants } from './discovery';
 import { seeds, type Grant } from './grants';
+import { withDeadlineStatus } from './listing';
 import { visitorGrants, visitorRefresh } from './workspace-privacy';
 
 export const CATALOG_UNAVAILABLE = 'The live funding catalog could not be loaded. These are built-in listings only, not the full catalog.';
@@ -30,7 +31,9 @@ export async function loadCatalog({ owner = false }: { owner?: boolean } = {}): 
       refresh = null;
     }
     if (!present.length) return { grants: seeds, refresh, error: CATALOG_EMPTY, source: 'builtin' };
-    return { grants: visitorGrants(await allGrants()), refresh, error: null, source: 'd1' };
+    // Past-deadline listings (New York date) are served as closed and not live; stored rows are untouched.
+    const now = new Date();
+    return { grants: visitorGrants(await allGrants()).map(g => withDeadlineStatus(g, now)), refresh, error: null, source: 'd1' };
   } catch {
     return { grants: seeds, refresh: null, error: CATALOG_UNAVAILABLE, source: 'builtin' };
   }
