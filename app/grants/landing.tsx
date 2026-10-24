@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { SeoShell, JsonLd, Breadcrumbs, RefreshLine, ListingList, LinkGrid } from '@/components/seo-page';
 import { SaveProfileCta } from '@/components/seo-session';
 import { seoJsonLd, type SeoContent, type SeoPage, type SeoSite } from '@/lib/seo-index';
@@ -20,14 +19,14 @@ export function SeoLanding({ site, page, content: c }: { site: SeoSite; page: Se
       <section aria-labelledby="listings-h">
         <h2 id="listings-h">{page.type === 'category' ? `${c.total} listings that aren't closed` : `${c.total} ${page.stateName}-specific listings`}</h2>
         <ListingList items={items} now={site.now} />
-        {c.total > items.length && <p className="seo-more"><Link href="/">See all {c.total} in the search app</Link></p>}
+        {c.total > items.length && <p className="seo-more"><a href="/">See all {c.total} in the search app</a></p>}
       </section>
       {c.nationwide && c.nationwide.sample.length > 0 && (
         <section className="seo-nationwide" aria-labelledby="nationwide-h">
           <h2 id="nationwide-h">Also open nationwide</h2>
           <p>
             Another {c.nationwide.count} nationwide listings are also open to {page.stateName} residents. Here are the {c.nationwide.sample.length} with the soonest deadlines
-            {c.nationwide.link ? <>; see <Link href={c.nationwide.link}>all of them</Link>.</> : <>; browse the <Link href="/grants">topic pages</Link> for the rest.</>}
+            {c.nationwide.link ? <>; see <a href={c.nationwide.link}>all of them</a>.</> : <>; browse the <a href="/grants">topic pages</a> for the rest.</>}
           </p>
           <ListingList items={c.nationwide.sample} now={site.now} />
         </section>

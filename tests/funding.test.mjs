@@ -251,20 +251,22 @@ test('grant_refresh_status reports hoursSinceRefresh and a 26-hour stale flag',(
 });
 
 test('upcoming_deadlines lists open matched records within the window, soonest first',()=>{
- const today='2026-10-23T13:00:00Z';
+ // Dates are relative to the real clock: match() checks deadlines against the current time.
+ const day=n=>new Date(Date.parse(new Date().toISOString().slice(0,10)+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
+ const today=day(0)+'T13:00:00Z';
  const base={...seeds[3],states:['New York'],status:'Open'};
  const grants=[
-  {...base,id:'later',title:'Later grant',deadline:'2026-11-20'},
-  {...base,id:'soon',title:'Soon grant',deadline:'2026-10-25'},
-  {...base,id:'today',title:'Today grant',deadline:'2026-10-23'},
-  {...base,id:'past',title:'Past grant',deadline:'2026-10-22'},
-  {...base,id:'closed',title:'Closed grant',deadline:'2026-10-30',status:'Closed'},
-  {...base,id:'far',title:'Far grant',deadline:'2027-01-15'},
+  {...base,id:'later',title:'Later grant',deadline:day(28)},
+  {...base,id:'soon',title:'Soon grant',deadline:day(2)},
+  {...base,id:'today',title:'Today grant',deadline:day(0)},
+  {...base,id:'past',title:'Past grant',deadline:day(-1)},
+  {...base,id:'closed',title:'Closed grant',deadline:day(7),status:'Closed'},
+  {...base,id:'far',title:'Far grant',deadline:day(84)},
   {...base,id:'rolling',title:'Rolling grant',deadline:null},
-  {...base,id:'la',title:'Louisiana grant',states:['Louisiana'],deadline:'2026-10-28'}];
+  {...base,id:'la',title:'Louisiana grant',states:['Louisiana'],deadline:day(5)}];
  const profiles=[{...p,id:'student',name:'Synthetic student'},{...p,id:'paused',name:'Paused',alerts:false,state:'LA'}];
  const out=notifications.upcomingDeadlines(grants,profiles,undefined,today);
- assert.equal(out.days,30);assert.equal(out.asOf,'2026-10-23');
+ assert.equal(out.days,30);assert.equal(out.asOf,day(0));
  assert.deepEqual(out.items.map(i=>[i.title,i.daysLeft]),[['Today grant',0],['Soon grant',2],['Later grant',28]]);
  assert.equal(out.total,3);
  assert.deepEqual(Object.keys(out.items[0]).sort(),['daysLeft','deadline','funder','matches','profile','profileId','score','title','url']);

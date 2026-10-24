@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { SeoShell, JsonLd, Breadcrumbs, RefreshLine, ListingList, LinkGrid } from '@/components/seo-page';
 import { SaveProfileCta } from '@/components/seo-session';
 import { hubContent, seoJsonLd, saveProfileReturn } from '@/lib/seo-index';
@@ -29,7 +28,7 @@ export default async function GrantsHub() {
       <section aria-labelledby="soonest-h">
         <h2 id="soonest-h">Soonest deadlines</h2>
         <ListingList items={h.soonest} now={site.now} />
-        <p className="seo-more"><Link href="/">Search all {h.openCount} listings in the app</Link></p>
+        <p className="seo-more"><a href="/">Search all {h.openCount} listings in the app</a></p>
       </section>
       <p className="seo-disclaimer">Listings come from public sources and may match your situation, but eligibility, amounts and deadlines are set by each funder. Check eligibility on the funder&apos;s page before applying.</p>
     </SeoShell>
