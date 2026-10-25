@@ -6,6 +6,14 @@ export const metadata: Metadata = {
   title: "Privacy policy (draft) — I Can Get Grants",
   description:
     "Draft privacy policy for the I Can Get Grants public beta: guest search, Sign in with ChatGPT, workspace data stored in Cloudflare D1, and funding-source requests. Pending review. Not legal advice.",
+  alternates: { canonical: "https://icangetgrants.com/privacy" },
+  openGraph: {
+    title: "Privacy policy (draft) — I Can Get Grants",
+    url: "https://icangetgrants.com/privacy",
+    siteName: "I Can Get Grants",
+    type: "website",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "I Can Get Grants — Find funding that fits you" }],
+  },
 };
 
 export default function PrivacyPage() {
@@ -21,9 +29,9 @@ export default function PrivacyPage() {
       <p>
         The operator is Tobias Fletcher, Brooklyn, New York. No street address
         is published. Questions, access requests, and deletion requests go to{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
       </p>
-      <p>Effective date: October 23, 2026.</p>
+      <p>Effective date: October 24, 2026.</p>
       <p>
         The law of the State of New York governs this policy. Disputes are
         heard in the state or federal courts located in New York.
@@ -377,7 +385,7 @@ export default function PrivacyPage() {
       <p>
         You can ask for access to your workspace data, or for deletion of it,
         by emailing{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
         Requests are handled manually. A completed deletion removes that
         account’s workspace and the refresh and scan records tied to that
         account or to its profile ids, plus any Google link for that account.
@@ -396,7 +404,7 @@ export default function PrivacyPage() {
         Add information about someone else only when you have permission to do
         that. If you believe information about a child under 13 has been saved,
         email{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a> so
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>) so
         it can be deleted.
       </p>
 
@@ -439,7 +447,17 @@ export default function PrivacyPage() {
       <h2>Contact</h2>
       <p>
         Tobias Fletcher, Brooklyn, New York. Email{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com or use the{" "}
+        <a href="/contact">contact form</a>.
+      </p>
+      <p>
+        The contact form sends only the name, email address, and message you
+        type, when you press Send. It goes through a small form handler on
+        tobiasfletcher.com, hosted by Cloudflare, which emails it to the operator
+        through Google (Gmail) and sends you one short confirmation with a copy
+        of your message. A one-way hash of your IP address and email address
+        is used to count messages per day and limit abuse. Messages are used
+        only to reply.
       </p>
     </LegalShell>
   );

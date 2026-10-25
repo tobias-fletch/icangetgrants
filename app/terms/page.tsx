@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Confirm, LegalShell } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Terms of use (draft) — I Can Get Grants",
   description:
     "Draft terms for the I Can Get Grants public beta. Listings are informational; verify eligibility and deadlines with the provider. Pending review. Not legal advice.",
+  alternates: { canonical: "https://icangetgrants.com/terms" },
+  openGraph: {
+    title: "Terms of use (draft) — I Can Get Grants",
+    url: "https://icangetgrants.com/terms",
+    siteName: "I Can Get Grants",
+    type: "website",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "I Can Get Grants — Find funding that fits you" }],
+  },
 };
 
 export default function TermsPage() {
@@ -20,7 +27,7 @@ export default function TermsPage() {
       <p>
         The operator is Tobias Fletcher, Brooklyn, New York. No street address
         is published. Email{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
       </p>
       <p>Effective date: October 23, 2026.</p>
       <p>
@@ -50,7 +57,7 @@ export default function TermsPage() {
         a ChatGPT account can link one Google account so both open the same
         workspace. The app does not create a separate password. What each
         sign-in shares with this app is described in the{" "}
-        <Link href="/privacy">privacy policy</Link>.
+        <a href="/privacy">privacy policy</a>.
       </p>
       <p>
         I Can Get Grants is free during the beta. This version has no checkout.
@@ -102,11 +109,11 @@ export default function TermsPage() {
       <p>
         You can ask for access to your workspace data, or for deletion of it,
         by emailing{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
         Requests are handled manually. A completed deletion removes that
         account’s workspace and the refresh and scan records tied to that
         account or to its profile ids. During the beta there is no automatic
-        retention period. The <Link href="/privacy">privacy policy</Link>{" "}
+        retention period. The <a href="/privacy">privacy policy</a>{" "}
         describes what is stored.
       </p>
 
@@ -200,7 +207,7 @@ export default function TermsPage() {
       <h2>Contact</h2>
       <p>
         Questions about these terms: Tobias Fletcher, Brooklyn, New York,{" "}
-        <a href="mailto:hello@icangetgrants.com">hello@icangetgrants.com</a>.
+        hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
       </p>
     </LegalShell>
   );

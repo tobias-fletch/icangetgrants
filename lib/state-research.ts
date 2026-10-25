@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { getDb } from '@/db';
 import { workspaces, jobs, catalog } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -5,10 +6,11 @@ import { evidenceHostAllowed, stateSources, STATE_CATEGORIES } from './state-reg
 import { stateRecord } from './state-discovery';
 import { fundingHub, administrativeTitle, leadKey } from './state-discovery';
 import { safeUrl } from './source-parsers';
-import { isOpenOpportunity, newOpportunityItems, profileMatches, monitoredProfiles } from './grants';
+import { isOpenOpportunity, newOpportunityItems, profileMatches, monitoredProfiles, missingInboxFields, inboxFieldsError } from './grants';
 import { cityById, cityEvidenceHostAllowed } from './city-registry';
 import { planResearchTasks, stateResearchKey, cityResearchKey } from './research-plan';
 import type { Grant, Profile } from './grants';
+import { rebuildSeoIndex, type D1Like } from './seo-store';
 // Plans state and city research for every monitored profile (not only alert-enabled ones) plus Wave 1 cities.
 // Returns at most `limit` due tasks (default 5, max 20), rotated by priority and nextDueAt; see research-plan.ts.
 // Task fields from earlier versions (state, code, category, source, fallback, localHosts, sourceStatus, lastResearch,
@@ -25,6 +27,8 @@ export async function recordStateOpportunities(input:any){
  const now=new Date().toISOString(),db=getDb(),staged=new Map<string,Grant>(),newIds=new Set<string>();
  // Existing leads are indexed by normalized URL, so a reworded title updates the same record instead of adding a duplicate.
  const known=new Map<string,Grant>();for(const row of await db.select().from(catalog)){const g=JSON.parse(row.data) as Grant;const key=leadKey(g);if(key&&!known.has(key))known.set(key,g);}const byKey=new Map<string,string>();let updatedExisting=0;
+ // Checked for the whole batch before anything is saved: every match needs a title and a URL.
+ input.opportunities.forEach((r:{title?:unknown;url?:unknown}|null,i:number)=>{const missing=missingInboxFields(r||{});if(missing.length)throw new Error(inboxFieldsError(`Opportunity ${i+1}`,missing));});
  for(const r of input.opportunities){const state=stateSources.find(s=>s.code===r.stateCode);if(!state||!STATE_CATEGORIES.includes(r.category))throw new Error('Invalid state or category.');const city=r.cityId==null?undefined:cityById(r.cityId);if(r.cityId!=null&&(!city||city.stateCode!==state.code||city.status!=='verified'||r.category==='aid'))throw new Error('Invalid city for this state or category.');if(typeof r.title!=='string'||r.title.length<5||r.title.length>180||fundingHub(r.title)||administrativeTitle(r.title)||/\b(?:loans?|tax credits?|investments?|directory|grant writing)\b/i.test(r.title))throw new Error('Only distinct grant/scholarship/aid programs are accepted.');
   const url=safeUrl(r.url||'','https://invalid.local'),sourceUrl=safeUrl(r.sourceUrl||'','https://invalid.local');if(!url||!sourceUrl||new URL(url).hostname==='invalid.local'||new URL(sourceUrl).hostname==='invalid.local')throw new Error('Absolute public source and program URLs are required.');
   if(!(city?cityEvidenceHostAllowed(city,state,sourceUrl):evidenceHostAllowed(state,sourceUrl)))throw new Error(city?'Evidence for a city lead must come from that city\'s allowlisted .gov domain, an exact designated partner host, or an accepted state source.':'Evidence must come from the configured state source, an allowlisted city or local government host, or an identifiable official state government page.');
@@ -40,6 +44,8 @@ export async function recordStateOpportunities(input:any){
  const owners=await db.select().from(workspaces);const profiles:Profile[]=owners.flatMap(r=>JSON.parse(r.data).profiles).filter((p:Profile)=>p.alerts);const ids=[...staged.keys()];const verified=[];for(const id of ids){const row=await db.select().from(catalog).where(eq(catalog.id,id));if(row[0])verified.push(id);}
  // Closed or past-deadline records are stored for completeness but never counted or listed as new.
  const created=[...staged.values()].filter(g=>newIds.has(g.id)),newRecords=created.filter(g=>isOpenOpportunity(g,now));const matches=new Map(newRecords.map(g=>[g.id,profileMatches(g,profiles)]));const matchedNew=newRecords.filter(g=>matches.get(g.id)!.length);
+ // Keep the /grants SEO index in step with the catalog (one read + one write per research batch).
+ try{if(env.DB)await rebuildSeoIndex(env.DB as unknown as D1Like);}catch(e){console.error('seo-index rebuild failed',e instanceof Error?e.message:'unknown');}
  return {persistedIds:verified,newOpportunities:newRecords.length,newMatchedOpportunities:matchedNew.length,...newOpportunityItems(newRecords,matches),updatedExisting,closedNotReported:created.length-newRecords.length,checkedAt:now};
 }
 export async function markStateResearched(input:any){const state=stateSources.find(s=>s.code===input?.stateCode);if(!state||!STATE_CATEGORIES.includes(input?.category)||typeof input?.summary!=='string'||input.summary.length>1200)throw new Error('Provide stateCode, category and a brief research summary.');const city=input?.cityId==null?undefined:cityById(input.cityId);if(input?.cityId!=null&&(!city||city.stateCode!==state.code||input.category==='aid'))throw new Error('Invalid city for this state or category.');const record:any={checkedAt:new Date().toISOString(),summary:input.summary};if(city)record.cityId=city.id;const id=city?cityResearchKey(city.id,input.category):stateResearchKey(state.code,input.category);await getDb().insert(jobs).values({id,data:JSON.stringify(record)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(record)}});return record;}
