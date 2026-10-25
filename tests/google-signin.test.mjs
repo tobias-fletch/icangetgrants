@@ -618,3 +618,12 @@ test('no user-facing GrantOS or Grantwell (MCP serverInfo name excepted)', () =>
   }
   assert.deepEqual(hits, []);
 });
+
+test('home first paint and /api/session (used by /grants pages) recognize a Google session too', () => {
+  const page = readFileSync('app/page.tsx', 'utf8');
+  assert.match(page, /getCurrentUser\(\)\.catch\(\(\) => null\)/);
+  assert.doesNotMatch(page, /getChatGPTUser/);
+  const session = readFileSync('app/api/session/route.ts', 'utf8');
+  assert.match(session, /const user = await getCurrentUser\(\)\.catch\(\(\) => null\);/);
+  assert.doesNotMatch(session, /getChatGPTUser/);
+});
