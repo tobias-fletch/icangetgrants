@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 const out=resolve('.sites-runtime/tests');mkdirSync(out,{recursive:true});
-for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing','city-registry','research-plan','fetch-budget']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
+for(const name of ['source-parsers','grants','programs','state-registry','state-discovery','access','notifications','listing','city-registry','community-foundations','research-plan','fetch-budget']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const parser=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
 const {match,seeds,newOpportunityItems,NEW_ITEM_LIMIT,newItemsSchemaProperties,isOpenOpportunity,profileMatches}=await import(pathToFileURL(`${out}/grants.mjs`).href);
 const now='2026-10-18T21:00:00Z';
@@ -310,8 +310,8 @@ test('individual and freelancer profiles get state arts council tasks; every sta
 });
 test('Wave 1 city hosts pass, lookalikes fail, and held hosts are not added',()=>{
  const byId=id=>cityModule.cityById(id),st=code=>stateModule.sourceForState(code);
- assert.deepEqual(cityModule.citySources.map(c=>c.id),['new-york-ny','los-angeles-ca','chicago-il','houston-tx','phoenix-az','philadelphia-pa','san-antonio-tx','san-diego-ca','dallas-tx','jacksonville-fl']);
- for(const c of cityModule.citySources){assert.equal(c.wave,1);assert.ok(c.rank>=1&&c.rank<=10);assert.ok(st(c.stateCode));}
+ assert.deepEqual(cityModule.citySources.filter(c=>c.wave===1).map(c=>c.id),['new-york-ny','los-angeles-ca','chicago-il','houston-tx','phoenix-az','philadelphia-pa','san-antonio-tx','san-diego-ca','dallas-tx','jacksonville-fl']);
+ for(const c of cityModule.citySources.filter(c=>c.wave===1)){assert.ok(c.rank>=1&&c.rank<=10);assert.ok(st(c.stateCode));}
  const ok=[['los-angeles-ca','CA',['lacity.gov','ewdd.lacity.gov','www.lacity.gov']],['chicago-il','IL',['chicago.gov','www.chicago.gov']],['houston-tx','TX',['houstontx.gov','www.houstontx.gov','houstonartsalliance.com','www.houstonartsalliance.com']],['phoenix-az','AZ',['phoenix.gov','www.phoenix.gov']],['philadelphia-pa','PA',['phila.gov','www.phila.gov','creativephl.org']],['san-diego-ca','CA',['sandiego.gov','www.sandiego.gov']],['dallas-tx','TX',['dallasecodev.org','www.dallasecodev.org','dallascityhall.com']],['jacksonville-fl','FL',['jacksonville.gov','www.jacksonville.gov']],['new-york-ny','NY',['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']]];
  for(const [id,code,hosts] of ok)for(const host of hosts)assert.equal(cityModule.cityEvidenceHostAllowed(byId(id),st(code),`https://${host}/grant`),true,id+' '+host);
  const bad=[['chicago-il','IL',['chicago.gov.evil.com','evilchicago.gov','chicago.gov.example.org','chicago.com']],['houston-tx','TX',['houstonartsalliance.com.evil.net','grants.houstonartsalliance.com','fakehoustonartsalliance.com']],['philadelphia-pa','PA',['creativephl.org.evil.com','sub.creativephl.org']],['dallas-tx','TX',['dallasecodev.org.evil.com','dallascityhall.com.example.net','sub.dallascityhall.com']],['los-angeles-ca','CA',['lacity.gov.evil.com','culturela.org','www.culturela.org']],['san-antonio-tx','TX',['sa.gov','www.sa.gov','sanantonio.gov']],['dallas-tx','TX',['fortworthtexas.gov','www.fortworthtexas.gov']],['houston-tx','TX',['sa.gov','fortworthtexas.gov']],['chicago-il','IL',['edc.nyc','nycedc.com','nyc.gov']]];
@@ -321,7 +321,7 @@ test('Wave 1 city hosts pass, lookalikes fail, and held hosts are not added',()=
  for(const host of ['chicago.gov','houstonartsalliance.com','creativephl.org','dallasecodev.org','lacity.gov'])for(const code of ['IL','TX','PA','CA'])assert.equal(stateModule.evidenceHostAllowed(st(code),`https://${host}/grant`),false,code+' '+host);
  const held=JSON.stringify(cityModule.citySources.map(c=>[c.govDomains,c.partnerHosts,c.sources]));for(const h of ['culturela.org','sa.gov','fortworth'])assert.ok(!held.includes(h),h);
  const sa=byId('san-antonio-tx');assert.equal(sa.status,'pending verification');assert.deepEqual(cityModule.cityHosts(sa),[]);
- assert.equal(cityModule.cityById('fort-worth-tx'),undefined);assert.deepEqual(st('NY').localHosts,['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']);
+ assert.equal(cityModule.cityById('fort-worth-tx').status,'pending verification');assert.deepEqual(cityModule.cityHosts(cityModule.cityById('fort-worth-tx')),[]);assert.deepEqual(st('NY').localHosts,['nyc.gov','nyc-business.nyc.gov','edc.nyc','nycedc.com']);
 });
 test('research plan covers states and Wave 1 cities with limit and rotation',()=>{
  const profiles=[{...p,id:'il',type:'Individual',state:'IL',alerts:false},{...p,id:'tx',type:'Small business',state:'TX'}];const empty=new Map();const at=Date.parse('2026-10-23T13:00:00Z');
