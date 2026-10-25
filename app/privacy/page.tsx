@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { Confirm, LegalShell } from "@/components/legal-page";
+import { LegalShell } from "@/components/legal-page";
 import { analyticsPrivacyLine, excludedLibrariesPhrase } from "@/lib/analytics";
 
 export const metadata: Metadata = {
-  title: "Privacy policy (draft) — I Can Get Grants",
+  title: "Privacy policy — I Can Get Grants",
   description:
-    "Draft privacy policy for the I Can Get Grants public beta: guest search, Sign in with ChatGPT, workspace data stored in Cloudflare D1, and funding-source requests. Pending review. Not legal advice.",
+    "Privacy policy for the I Can Get Grants public beta: guest search, Sign in with ChatGPT or Google, workspace data stored on Cloudflare D1, and funding-source requests.",
   alternates: { canonical: "https://icangetgrants.com/privacy" },
   openGraph: {
-    title: "Privacy policy (draft) — I Can Get Grants",
+    title: "Privacy policy — I Can Get Grants",
     url: "https://icangetgrants.com/privacy",
     siteName: "I Can Get Grants",
     type: "website",
@@ -22,16 +22,16 @@ export default function PrivacyPage() {
     <LegalShell>
       <h1>Privacy policy</h1>
       <p>
-        This draft describes what the I Can Get Grants public beta actually
-        does with information. It is pending review and is not legal advice.
-        The product name in the interface is I Can Get Grants.
+        This policy describes what the I Can Get Grants public beta actually
+        does with information. The product name in the interface is I Can Get
+        Grants.
       </p>
       <p>
         The operator is Tobias Fletcher, Brooklyn, New York. No street address
         is published. Questions, access requests, and deletion requests go to{" "}
         hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
       </p>
-      <p>Effective date: October 24, 2026.</p>
+      <p>Effective date: October 25, 2026.</p>
       <p>
         The law of the State of New York governs this policy. Disputes are
         heard in the state or federal courts located in New York.
@@ -86,16 +86,57 @@ export default function PrivacyPage() {
         Signing out does not delete a saved workspace.
       </p>
       <p>
-        <Confirm>
-          that production sign-in is completed at auth.openai.com, and what
-          account data, cookies, or logs OpenAI keeps for Sign in with ChatGPT.
-          This app only reads the headers listed above
-        </Confirm>
+        Sign in with ChatGPT is run by OpenAI, and sign-in is completed on
+        OpenAI’s side. <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noopener noreferrer">OpenAI’s privacy policy</a> covers the account data, cookies, and logs
+        OpenAI keeps for it. This app only reads the headers listed above.
       </p>
       <p>
         On a local development server, a localhost-only HttpOnly cookie named{" "}
         <code>__sites_local_auth</code> stands in for those headers. That cookie
         is not the production sign-in.
+      </p>
+
+      <h2>Continue with Google</h2>
+      <p>
+        When Google sign-in is turned on, you can also continue with Google.
+        The sign-in path is <code>/auth/google/start</code>, Google returns to{" "}
+        <code>/auth/google/callback</code>, and the sign-out path is{" "}
+        <code>/auth/google/signout</code>. The app asks Google only for the{" "}
+        <code>openid</code>, <code>email</code>, and <code>profile</code>{" "}
+        scopes. It exchanges the one-time code with Google on the server,
+        checks Google’s signed ID token, and accepts only a Google account with
+        a verified email address.
+      </p>
+      <p>
+        From that token the app keeps only Google’s account identifier (the{" "}
+        <code>sub</code> value). It does not store or display the Google email
+        address, name, or picture. A workspace created with Google alone is
+        keyed by <code>google:</code> plus that identifier.
+      </p>
+      <p>
+        If you are signed in with ChatGPT, you can link one Google account in
+        Preferences &amp; data. A <code>google_links</code> row then stores the
+        Google identifier, your ChatGPT account id, and the time of linking,
+        and Continue with Google opens your ChatGPT workspace. Unlinking deletes
+        that row. If that Google account already had its own workspace, linking
+        moves its profiles and saved items into your ChatGPT workspace (your
+        ChatGPT entries win where the two overlap) and then deletes the Google
+        workspace, in one step. Unlinking later does not move anything back.
+      </p>
+      <p>
+        Catalog administration and the owner-only tools are available only
+        through Sign in with ChatGPT, never through a Google sign-in, even a
+        linked one.
+      </p>
+      <p>
+        Sign in with Google: Google’s signed ID token gives the app your Google
+        account identifier, your email address and whether Google has verified
+        it, and your name. The app uses the email only to check that it is
+        verified, does not use the name, and keeps only the account identifier.
+        Google data received through Sign in with Google is used only to sign
+        you in and open your workspace. It is not sold, not used for
+        advertising, and not shared with anyone. <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google’s privacy policy</a> covers what Google
+        keeps about the sign-in.
       </p>
 
       <h2>Workspace stored for a signed-in account</h2>
@@ -216,21 +257,25 @@ export default function PrivacyPage() {
         not monitored.
       </p>
       <p>
-        <Confirm>
-          who operates that daily refresh, and any separate logging it creates.
-          This draft does not change that task
-        </Confirm>
+        Tobias Fletcher runs that daily refresh himself, through a ChatGPT
+        scheduled task that calls the owner-only refresh. It creates no extra
+        logs about visitors.
       </p>
 
       <h2>Hosting and sign-in providers</h2>
       <ul>
         <li>
-          The app runs on Cloudflare Workers. Workspace, catalog, and job rows
-          are stored in Cloudflare D1 (the <code>DB</code> binding).
+          The app runs on Cloudflare Workers through OpenAI Sites. Workspace,
+          catalog, Google-link, and job rows are stored on Cloudflare, in a
+          Cloudflare D1 database (the <code>DB</code> binding).
         </li>
         <li>
           The site is hosted as an OpenAI Site. Sign-in is Sign in with
-          ChatGPT, using the paths listed above.
+          ChatGPT (OpenAI), using the paths listed above.
+        </li>
+        <li>
+          When Google sign-in is turned on, Continue with Google is provided
+          by Google, as described above.
         </li>
       </ul>
       <p>
@@ -240,11 +285,9 @@ export default function PrivacyPage() {
       </p>
       {analyticsLine ? <p>{analyticsLine}</p> : null}
       <p>
-        <Confirm>
-          where the D1 database is located; whether Cloudflare or OpenAI Sites
-          keep request logs, IP addresses, or analytics outside this
-          application; and OpenAI’s retention of Sign in with ChatGPT data
-        </Confirm>
+        Cloudflare and OpenAI may keep their own standard request logs,
+        including IP addresses, under their own policies (<a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare’s privacy policy</a> and 
+        <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noopener noreferrer">OpenAI’s privacy policy</a>).
       </p>
 
       <h2>Funding sources</h2>
@@ -277,6 +320,10 @@ export default function PrivacyPage() {
           state student-aid pages
         </li>
         <li>WomensNet Amber Grant and Awesome Foundation program pages</li>
+        <li>
+          official city economic-development and small-business grant pages,
+          and community foundation grant pages
+        </li>
       </ul>
       <p>
         A curated NASE Growth Grants listing is included even when its page
@@ -287,15 +334,30 @@ export default function PrivacyPage() {
 
       <h2>Cookies and on-device storage</h2>
       <p>
-        The production application code does not set a cookie and does not save
-        the workspace in browser local storage. Production sign-in is carried
-        by the headers listed above.
+        The application does not save the workspace in browser local storage.
+        Sign in with ChatGPT is carried by the headers listed above. When
+        Google sign-in is turned on, the app sets two cookies of its own. Both
+        are HttpOnly, Secure, SameSite=Lax, and signed by the server:
+      </p>
+      <ul>
+        <li>
+          <code>__Host-icgg_google_oauth</code> holds one-time values for a
+          Google sign-in or link in progress. It lasts up to 10 minutes and is
+          cleared when Google returns.
+        </li>
+        <li>
+          <code>__Host-icgg_session</code> holds the Google account identifier
+          and an expiry time. It lasts up to 30 days, or until you sign out.
+        </li>
+      </ul>
+      <p>
+        Neither cookie is used for advertising or analytics.
       </p>
       <p>
-        <Confirm>
-          which cookies, if any, auth.openai.com or OpenAI Sites set in the
-          browser during sign-in
-        </Confirm>
+        For Sign in with ChatGPT, the only sign-in cookies are the ones OpenAI
+        sets, covered by <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noopener noreferrer">OpenAI’s privacy policy</a>. I Can Get Grants sets no cookies of its own
+        for that sign-in. The two Google sign-in cookies above are the only
+        cookies the app sets itself.
       </p>
 
       <h2>Export, retention, and deletion</h2>
@@ -319,7 +381,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           Signing out does not delete the workspace row or the refresh-time
-          row.
+          row. A ChatGPT account can unlink Google in Preferences &amp; data,
+          which deletes the <code>google_links</code> row.
         </li>
         <li>
           The app has no button that deletes the account, the workspace row, or
@@ -332,7 +395,7 @@ export default function PrivacyPage() {
         hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
         Requests are handled manually. A completed deletion removes that
         account’s workspace and the refresh and scan records tied to that
-        account or to its profile ids.
+        account or to its profile ids, plus any Google link for that account.
       </p>
 
       <h2>Age and information about other people</h2>
@@ -361,21 +424,24 @@ export default function PrivacyPage() {
           Saves and signed-in discovery require the account headers and a
           same-origin request.
         </li>
-        <li>Each saved workspace is keyed by that account id.</li>
+        <li>
+          Each saved workspace is keyed by that account id, or, for a Google
+          sign-in, by the linked ChatGPT account id or the Google identifier.
+        </li>
         <li>
           Catalog administration is limited to the site operator. A local
           development identity is accepted only when the app is running in
           development.
         </li>
         <li>
-          The application does not add its own encryption layer.
+          Traffic to the site is encrypted in transit (HTTPS), and stored data
+          is encrypted at rest by Cloudflare. The application does not add its
+          own encryption layer on top of that.
         </li>
       </ul>
       <p>
-        <Confirm>
-          encryption in transit and at rest provided by Cloudflare and OpenAI
-          Sites, and any breach-notice commitment
-        </Confirm>
+        If we learn of a breach that affects your information, we’ll notify
+        affected users promptly.
       </p>
 
       <h2>Changes to this policy</h2>
