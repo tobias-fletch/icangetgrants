@@ -98,6 +98,46 @@ export default function PrivacyPage() {
         is not the production sign-in.
       </p>
 
+      <h2>Continue with Google</h2>
+      <p>
+        When Google sign-in is turned on, you can also continue with Google.
+        The sign-in path is <code>/auth/google/start</code>, Google returns to{" "}
+        <code>/auth/google/callback</code>, and the sign-out path is{" "}
+        <code>/auth/google/signout</code>. The app asks Google only for the{" "}
+        <code>openid</code>, <code>email</code>, and <code>profile</code>{" "}
+        scopes. It exchanges the one-time code with Google on the server,
+        checks Google’s signed ID token, and accepts only a Google account with
+        a verified email address.
+      </p>
+      <p>
+        From that token the app keeps only Google’s account identifier (the{" "}
+        <code>sub</code> value). It does not store or display the Google email
+        address, name, or picture. A workspace created with Google alone is
+        keyed by <code>google:</code> plus that identifier.
+      </p>
+      <p>
+        If you are signed in with ChatGPT, you can link one Google account in
+        Preferences &amp; data. A <code>google_links</code> row then stores the
+        Google identifier, your ChatGPT account id, and the time of linking,
+        and Continue with Google opens your ChatGPT workspace. Unlinking deletes
+        that row. If that Google account already had its own workspace, linking
+        moves its profiles and saved items into your ChatGPT workspace (your
+        ChatGPT entries win where the two overlap) and then deletes the Google
+        workspace, in one step. Unlinking later does not move anything back.
+      </p>
+      <p>
+        Catalog administration and the owner-only tools are available only
+        through Sign in with ChatGPT, never through a Google sign-in, even a
+        linked one.
+      </p>
+      <p>
+        <Confirm>
+          that this section meets the Google API Services User Data Policy and
+          Google’s OAuth consent-screen review, and what Google keeps about the
+          sign-in
+        </Confirm>
+      </p>
+
       <h2>Workspace stored for a signed-in account</h2>
       <p>
         Signed-in profiles, saved opportunities, and application notes are
@@ -287,9 +327,24 @@ export default function PrivacyPage() {
 
       <h2>Cookies and on-device storage</h2>
       <p>
-        The production application code does not set a cookie and does not save
-        the workspace in browser local storage. Production sign-in is carried
-        by the headers listed above.
+        The application does not save the workspace in browser local storage.
+        Sign in with ChatGPT is carried by the headers listed above. When
+        Google sign-in is turned on, the app sets two cookies of its own. Both
+        are HttpOnly, Secure, SameSite=Lax, and signed by the server:
+      </p>
+      <ul>
+        <li>
+          <code>__Host-icgg_google_oauth</code> holds one-time values for a
+          Google sign-in or link in progress. It lasts up to 10 minutes and is
+          cleared when Google returns.
+        </li>
+        <li>
+          <code>__Host-icgg_session</code> holds the Google account identifier
+          and an expiry time. It lasts up to 30 days, or until you sign out.
+        </li>
+      </ul>
+      <p>
+        Neither cookie is used for advertising or analytics.
       </p>
       <p>
         <Confirm>
@@ -319,7 +374,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           Signing out does not delete the workspace row or the refresh-time
-          row.
+          row. A ChatGPT account can unlink Google in Preferences &amp; data,
+          which deletes the <code>google_links</code> row.
         </li>
         <li>
           The app has no button that deletes the account, the workspace row, or
@@ -332,7 +388,7 @@ export default function PrivacyPage() {
         hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
         Requests are handled manually. A completed deletion removes that
         account’s workspace and the refresh and scan records tied to that
-        account or to its profile ids.
+        account or to its profile ids, plus any Google link for that account.
       </p>
 
       <h2>Age and information about other people</h2>
@@ -361,7 +417,10 @@ export default function PrivacyPage() {
           Saves and signed-in discovery require the account headers and a
           same-origin request.
         </li>
-        <li>Each saved workspace is keyed by that account id.</li>
+        <li>
+          Each saved workspace is keyed by that account id, or, for a Google
+          sign-in, by the linked ChatGPT account id or the Google identifier.
+        </li>
         <li>
           Catalog administration is limited to the site operator. A local
           development identity is accepted only when the app is running in

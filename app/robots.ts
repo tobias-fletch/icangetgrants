@@ -7,6 +7,7 @@ const PRIVATE_PATHS = [
   "/signin-with-chatgpt",
   "/signout-with-chatgpt",
   "/callback",
+  "/auth/",
 ];
 
 export default function robots(): MetadataRoute.Robots {
