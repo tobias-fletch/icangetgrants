@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { mirrorCatalogGeo, grantCity, grantCounty } from './catalog-geo';
 import { getDb } from '@/db';
 import { catalog, jobs, workspaces } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -12,7 +13,7 @@ import { FetchBudget, budgetedFetch, isBudgetError, orderScanRoutes, RUN_FETCH_L
 import type { StateReport } from './state-discovery';
 import { writeSeoIndex, type D1Like } from './seo-store';
 import { publicRefresh } from './access';
-export async function allGrants():Promise<Grant[]> {const records=(await getDb().select().from(catalog)).map(x=>JSON.parse(x.data) as Grant);const ids=new Set(records.map(x=>x.id));return [...seeds.filter(g=>!ids.has(g.id)),...records];}
+export async function allGrants():Promise<Grant[]> {const records=(await getDb().select({id:catalog.id,data:catalog.data}).from(catalog)).map(x=>JSON.parse(x.data) as Grant);const ids=new Set(records.map(x=>x.id));return [...seeds.filter(g=>!ids.has(g.id)),...records];}
 export async function getWorkspace(owner:string):Promise<Workspace>{const rows=await getDb().select().from(workspaces).where(eq(workspaces.owner,owner));return rows[0]?JSON.parse(rows[0].data):{profiles:[],saved:[],seen:''};}
 export async function saveWorkspace(owner:string,data:Workspace){await getDb().insert(workspaces).values({owner,data:JSON.stringify(data)}).onConflictDoUpdate({target:workspaces.owner,set:{data:JSON.stringify(data)}});}
 const codes:Record<string,string>={'Student':'21|99','Individual':'21|99','Freelancer':'21|23|99','Small business':'23|99','Nonprofit':'12|13|99'};
@@ -24,7 +25,7 @@ export type SourceReport={name:string;status:string;records:number;queries:numbe
 // Coverage runs for every monitored profile (all U.S. profiles, plus alert-enabled ones elsewhere); the alerts flag
 // only decides who is notified (newItems matches via profileMatches and upcoming_deadlines).
 export async function discover(input:Profile[]){
- const profiles=monitoredProfiles(input),db=getDb(),now=new Date().toISOString();const existing=new Map((await db.select().from(catalog)).map(x=>[x.id,JSON.parse(x.data) as Grant]));const staged=new Map<string,Grant>();const reports:SourceReport[]=[];const stateReports:StateReport[]=[];let cursor=0;const old=await db.select().from(jobs).where(eq(jobs.id,'last-refresh'));if(old[0])cursor=JSON.parse(old[0].data).cursor||0;const cycleStart=cursor;
+ const profiles=monitoredProfiles(input),db=getDb(),now=new Date().toISOString();const existing=new Map((await db.select({id:catalog.id,data:catalog.data}).from(catalog)).map(x=>[x.id,JSON.parse(x.data) as Grant]));const staged=new Map<string,Grant>();const reports:SourceReport[]=[];const stateReports:StateReport[]=[];let cursor=0;const old=await db.select().from(jobs).where(eq(jobs.id,'last-refresh'));if(old[0])cursor=JSON.parse(old[0].data).cursor||0;const cycleStart=cursor;
  const budget=new FetchBudget(RUN_FETCH_LIMIT),caps={search:budget.child(SOURCE_FETCH_CAPS.grantsGovSearch),detail:budget.child(SOURCE_FETCH_CAPS.grantsGovDetail),careerOneStop:budget.child(SOURCE_FETCH_CAPS.careerOneStop),california:budget.child(SOURCE_FETCH_CAPS.california),poetsWriters:budget.child(SOURCE_FETCH_CAPS.poetsWriters),chamber:budget.child(SOURCE_FETCH_CAPS.chamber),studentAid:budget.child(SOURCE_FETCH_CAPS.studentAid),seedPrograms:budget.child(SOURCE_FETCH_CAPS.seedPrograms)};let deferredRoutes:{route:string;code:string;category:string;lastScanned:string|null}[]=[];let pageScanFetches=0;
  // Leads dedupe by normalized URL: a reworded title adopts the existing record's ID instead of creating a new one.
  const leads=new Map<string,string>();for(const g of existing.values()){const key=leadKey(g);if(key&&!leads.has(key))leads.set(key,g.id);}
@@ -84,7 +85,7 @@ export async function discover(input:Profile[]){
  // Batches keep large source imports within Worker/D1 subrequest limits.
  // A new record without a title or URL is rejected (never saved or sent to an Updates inbox) and named in errors.
  const inboxRejections:string[]=[];for(const g of [...staged.values()]){if(existing.has(g.id))continue;const missing=missingInboxFields(g);if(missing.length){staged.delete(g.id);inboxRejections.push(inboxFieldsError(`Rejected new match from ${g.source||'a source'} (${g.id})`,missing));}}
- const records=[...staged.values()];if(!env.DB)throw new Error('Database unavailable');for(let i=0;i<records.length;i+=40){await env.DB.batch(records.slice(i,i+40).map(g=>env.DB!.prepare('INSERT INTO catalog (id,data) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').bind(g.id,JSON.stringify(g))));}
+ const records=[...staged.values()];if(!env.DB)throw new Error('Database unavailable');for(let i=0;i<records.length;i+=40){await env.DB.batch(records.slice(i,i+40).map(g=>env.DB!.prepare('INSERT INTO catalog (id,data) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').bind(g.id,JSON.stringify(g))));}await mirrorCatalogGeo(env.DB as unknown as D1Like,records.filter(g=>grantCity(g)||grantCounty(g)));
  // Closed or past-deadline records are stored but never counted or listed as new.
  const created=records.filter(g=>!existing.has(g.id)),newRecords=created.filter(g=>isOpenOpportunity(g,now));const combined=new Map(existing);records.forEach(g=>combined.set(g.id,g));
  const liveMatches=profiles.map(p=>({profileId:p.id,matches:[...combined.values()].filter(g=>match(g,p).score>0).length,newMatches:newRecords.filter(g=>match(g,p).score>0).length}));

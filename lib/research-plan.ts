@@ -2,6 +2,7 @@ import { statePlan, stateSources } from './state-registry';
 import type { StateCategory } from './state-registry';
 import { citySources, cityHosts, CITY_REVISIT_DAYS } from './city-registry';
 import type { CitySource, CityCategory } from './city-registry';
+import { communityFoundations, FOUNDATION_REVISIT_DAYS, foundationCategoriesFor } from './community-foundations';
 import { countryName, stateName } from './source-parsers';
 import type { Profile } from './grants';
 export const RESEARCH_LIMIT_DEFAULT=5,RESEARCH_LIMIT_MAX=20,STATE_REVISIT_DAYS=1;
@@ -9,6 +10,7 @@ const DAY=24*3600000;
 export function researchLimit(value:unknown){return typeof value==='number'&&Number.isInteger(value)&&value>=1?Math.min(RESEARCH_LIMIT_MAX,value):RESEARCH_LIMIT_DEFAULT;}
 export function stateResearchKey(code:string,category:string){return 'research-'+code+'-'+category;}
 export function cityResearchKey(cityId:string,category:string){return 'research-city-'+cityId+'-'+category;}
+export function foundationResearchKey(foundationId:string,category:string){return 'research-foundation-'+foundationId+'-'+category;}
 type Stored={checkedAt?:string;status?:string;records?:number};
 export type ResearchInput={profiles:Profile[];reports:Map<string,Stored>;research:Map<string,Stored>;now?:number;limit?:unknown};
 function inState(p:Profile,code:string,state:string){return countryName(p.country)==='United States'&&(stateName(p.state)===state||String(p.state||'').toUpperCase()===code);}
@@ -19,6 +21,7 @@ function cityCategories(city:CitySource,people:Profile[]):CityCategory[]{
  return all.filter(c=>people.some(p=>c==='business'?['Small business','Freelancer','Nonprofit'].includes(p.type):['Individual','Freelancer'].includes(p.type)));
 }
 const STATE_QUERY:Record<StateCategory,string>={business:'small business grant programs',aid:'state scholarships student aid grants',arts:'state arts council grants and fellowships for individual artists'};
+const FOUNDATION_QUERY:Record<StateCategory,string>={business:'community foundation grants for nonprofits and small businesses',aid:'community foundation scholarships',arts:'community foundation grants for artists and arts organizations'};
 const CITY_QUERY:Record<CityCategory,string>={business:'city small business grant programs',arts:'city arts and culture grants for artists'};
 // Rotation: a task is due when never researched or when lastResearch + revisitDays has passed (states daily,
 // Wave 1 cities every 7 days, Wave 2 every 14, Wave 3 every 30). Due tasks are ranked by priority, then by the
@@ -26,6 +29,8 @@ const CITY_QUERY:Record<CityCategory,string>={business:'city small business gran
 // Priority: base 50 for a profiled state, 40 for a profiled city, 20 for an unprofiled Wave 1 city; +15 never
 // researched; +10 when the automatic scan found no program leads or was blocked; up to +15 for being overdue
 // (5 per revisit interval); up to +10 for profiles in that geography.
+// Community foundations (community-foundations.ts) get tasks only when a monitored profile is in the foundation's
+// home city, for the categories those profiles need; base 35, revisited every 14 days.
 export function planResearchTasks({profiles,reports,research,now=Date.now(),limit}:ResearchInput){
  const max=researchLimit(limit),candidates:any[]=[];
  const score=(base:number,last:string|null,days:number,needs:boolean,people:number)=>{const lastMs=last?Date.parse(last):NaN;const overdue=Number.isFinite(lastMs)?Math.max(0,(now-lastMs-days*DAY)/(days*DAY)):0;return base+(last?0:15)+(needs?10:0)+Math.min(3,overdue)*5+Math.min(10,people);};
@@ -46,7 +51,16 @@ export function planResearchTasks({profiles,reports,research,now=Date.now(),limi
    candidates.push({scope:'city',taskId:'city-'+city.id+'-'+category,cityId:city.id,city:city.city,rank:city.rank,wave:city.wave,state:state.state,code:state.code,category,source:city.sources[category],fallback:city.sources[category],localHosts:cityHosts(city),partnerHosts:city.partnerHosts,sourceStatus:'Research only',lastResearch:last,interests:keywords(people.length?people:statePeople),query:`${city.city} ${state.state} ${CITY_QUERY[category]} current application eligibility`,needsResearch:true,revisitDays:days,...timing,priority:score(people.length?40:20,last,days,true,people.length)});
   }
  }
- const dueTasks=candidates.filter(t=>t.due).sort((a,b)=>b.priority-a.priority||(a.scope===b.scope?0:a.scope==='state'?-1:1)||String(a.nextDueAt||'').localeCompare(String(b.nextDueAt||''))||a.taskId.localeCompare(b.taskId));
+ const pendingFoundations:{foundationId:string;name:string;state:string;note?:string}[]=[];
+ for(const fd of communityFoundations){
+  const state=stateSources.find(s=>s.code===fd.stateCode);if(!state)continue;const people=profiles.filter(p=>inState(p,fd.stateCode,state.state)&&!!p.city&&p.city.trim().toLowerCase()===fd.city.toLowerCase());if(!people.length)continue;
+  if(fd.status!=='verified'||!fd.domains.length){pendingFoundations.push({foundationId:fd.id,name:fd.name,state:state.state,note:fd.note});continue;}
+  for(const category of foundationCategoriesFor(people.map(p=>p.type))){
+   const last=research.get(foundationResearchKey(fd.id,category))?.checkedAt||null;const timing=due(last,FOUNDATION_REVISIT_DAYS);
+   candidates.push({scope:'foundation',taskId:'foundation-'+fd.id+'-'+category,foundationId:fd.id,funder:fd.name,city:fd.city,county:fd.county,state:state.state,code:state.code,category,source:fd.grantsUrl,fallback:fd.grantsUrl,localHosts:fd.domains,sourceStatus:'Research only',lastResearch:last,interests:keywords(people),query:`${fd.name} ${FOUNDATION_QUERY[category]} current application eligibility`,needsResearch:true,revisitDays:FOUNDATION_REVISIT_DAYS,...timing,priority:score(35,last,FOUNDATION_REVISIT_DAYS,true,people.length)});
+  }
+ }
+ const dueTasks=candidates.filter(t=>t.due).sort((a,b)=>b.priority-a.priority||(a.scope===b.scope?0:a.scope==='state'?-1:b.scope==='state'?1:a.scope==='city'?-1:b.scope==='city'?1:0)||String(a.nextDueAt||'').localeCompare(String(b.nextDueAt||''))||a.taskId.localeCompare(b.taskId));
  const tasks=dueTasks.slice(0,max).map(({due,...t})=>t);
- return {tasks,limit:max,totalDue:dueTasks.length,deferred:dueTasks.length-tasks.length,upcoming:candidates.filter(t=>!t.due).length,pendingCities};
+ return {tasks,limit:max,totalDue:dueTasks.length,deferred:dueTasks.length-tasks.length,upcoming:candidates.filter(t=>!t.due).length,pendingCities,pendingFoundations};
 }

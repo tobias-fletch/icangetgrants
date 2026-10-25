@@ -15,6 +15,13 @@
       "when": 1792795355287,
       "tag": "0001_google_links",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792893639787,
+      "tag": "0002_catalog_city_county",
+      "breakpoints": true
     }
   ]
 }
