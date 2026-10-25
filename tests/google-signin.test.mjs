@@ -593,7 +593,10 @@ test('the client secret and session secret never appear in source, tests output 
 test('the Google button only renders when Google sign-in is enabled', () => {
   const src = readFileSync('app/dashboard.tsx', 'utf8');
   assert.match(src, /auth\.googleEnabled&&<a className="account-link" href="\/auth\/google\/start\?return_to=%2F">Continue with Google<\/a>/);
-  assert.match(src, /href="\/signin-with-chatgpt\?return_to=%2F"/, 'ChatGPT sign-in is unchanged');
+  // ChatGPT sign-in still goes through the shared helper (lib/signin-url.ts -> /signin-with-chatgpt).
+  assert.match(src, /auth\.googleEnabled\?'Sign in with ChatGPT':'Sign in \/ Create account'/, 'ChatGPT sign-in is unchanged');
+  assert.match(src, /<a className="account-link" href=\{signInUrl\('\/'\)\}>/, 'ChatGPT sign-in uses signInUrl');
+  assert.match(readFileSync('lib/signin-url.ts', 'utf8'), /SIGN_IN_PATH = '\/signin-with-chatgpt'/);
   assert.match(src, /\/auth\/google\/start\?intent=link&return_to=%2F/);
   assert.match(readFileSync('app/robots.ts', 'utf8'), /"\/auth\/"/);
 });
