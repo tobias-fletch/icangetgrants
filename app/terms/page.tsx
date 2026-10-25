@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Confirm, LegalShell } from "@/components/legal-page";
+import { LegalShell } from "@/components/legal-page";
 
 export const metadata: Metadata = {
-  title: "Terms of use (draft) — I Can Get Grants",
+  title: "Terms of use — I Can Get Grants",
   description:
-    "Draft terms for the I Can Get Grants public beta. Listings are informational; verify eligibility and deadlines with the provider. Pending review. Not legal advice.",
+    "Terms of use for the I Can Get Grants public beta. Listings are informational; verify eligibility and deadlines with the provider.",
   alternates: { canonical: "https://icangetgrants.com/terms" },
   openGraph: {
-    title: "Terms of use (draft) — I Can Get Grants",
+    title: "Terms of use — I Can Get Grants",
     url: "https://icangetgrants.com/terms",
     siteName: "I Can Get Grants",
     type: "website",
@@ -20,25 +20,21 @@ export default function TermsPage() {
     <LegalShell>
       <h1>Terms of use</h1>
       <p>
-        These draft terms describe the I Can Get Grants public beta. They are
-        pending review and are not legal advice. They are not a substitute for
-        a provider’s own application rules.
+        These terms describe the I Can Get Grants public beta. They are not a
+        substitute for a provider’s own application rules.
       </p>
       <p>
         The operator is Tobias Fletcher, Brooklyn, New York. No street address
         is published. Email{" "}
         hello@icangetgrants.com (or use the <a href="/contact">contact form</a>).
       </p>
-      <p>Effective date: October 23, 2026.</p>
+      <p>Effective date: October 25, 2026.</p>
       <p>
         These terms are governed by the law of the State of New York. Disputes
         are heard in the state or federal courts located in New York.
       </p>
       <p>
-        <Confirm>
-          whether using the beta counts as acceptance of these terms. The
-          product does not currently record acceptance
-        </Confirm>
+        By using I Can Get Grants, you accept these terms.
       </p>
 
       <h2>The service</h2>
@@ -135,9 +131,6 @@ export default function TermsPage() {
         this app or the funding sources it queries. A signed-in source refresh
         is limited to once every 15 minutes for that account.
       </p>
-      <p>
-        <Confirm>any additional acceptable-use rules</Confirm>
-      </p>
 
       <h2>Other sites</h2>
       <p>
@@ -157,15 +150,9 @@ export default function TermsPage() {
         Guest searches and paused profiles are not monitored.
       </p>
       <p>
-        The interface describes a shared catalog update daily at 9 a.m.
-        Eastern for profiles with monitoring turned on. In this codebase that
-        update is an owner-only refresh.
-      </p>
-      <p>
-        <Confirm>
-          that this is the schedule in operation, and any uptime or support
-          commitment. None is stated in the application code
-        </Confirm>
+        The shared catalog refreshes daily at 9 a.m. Eastern for profiles with
+        monitoring turned on. There is no uptime guarantee. Support is
+        available only through the <a href="/contact">contact form</a>.
       </p>
 
       <h2>Intellectual property</h2>
@@ -176,9 +163,8 @@ export default function TermsPage() {
         third-party components and those source materials.
       </p>
       <p>
-        <Confirm>
-          the license for notes you save, and any trademark notice to display
-        </Confirm>
+        You keep ownership of the notes and other text you save. You give the
+        operator a license only to store that content and show it back to you.
       </p>
 
       <h2>Disclaimers and liability</h2>

@@ -20,9 +20,6 @@ export function LegalShell({ children, legal = true }: { children: ReactNode; le
       </header>
       {legal && (
         <>
-          <p className="legal-draft" role="note">
-            Draft — pending review. Not legal advice.
-          </p>
           <p className="legal-disclaimer">
             Funding listings on I Can Get Grants are informational. You must verify
             eligibility, deadlines, award amounts, and application rules with the
@@ -45,8 +42,4 @@ export function LegalShell({ children, legal = true }: { children: ReactNode; le
       </footer>
     </div>
   );
-}
-
-export function Confirm({ children }: { children: ReactNode }) {
-  return <strong className="legal-confirm">[TOBIAS TO CONFIRM: {children}]</strong>;
 }
