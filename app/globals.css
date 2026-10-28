@@ -93,3 +93,19 @@ footer{font-size:11px;color:#89969f;margin-top:34px;padding:22px 0;line-height:1
 .contact-form{display:grid;gap:14px;margin:20px 0 8px}.contact-form label{display:grid;gap:7px;font-size:13px;font-weight:600;color:#3b4d55}.contact-form input,.contact-form textarea{width:100%;padding:12px;border:1px solid #d6dfe5;border-radius:9px;background:#fff;font-size:15px;color:#17252b}.contact-form textarea{min-height:150px;resize:vertical}.contact-form .btn{justify-self:start;font-size:14px;padding:12px 20px}.contact-note{font-size:13px!important;color:#66747c!important}.contact-error{color:#9a3a2c!important;font-size:14px!important}.contact-error a,.contact-alt a{color:#087d68;font-weight:650;text-decoration:underline}.contact-trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}.contact-success{margin:20px 0 12px;padding:20px 22px;border-left:3px solid #087d68;background:#eef7f3;border-radius:0 12px 12px 0}.contact-success:focus{outline:none}.contact-success h2{margin:0 0 8px!important}.contact-success p{margin:0 0 14px}
 /* Mobile: keep "Preferences & data" and "How matching works" reachable as a second scrollable tab row; 44px tap targets; Privacy/Terms move to the footer so the top bar does not wrap. */
 @media(max-width:760px){.sidebar .side-bottom{display:flex;flex-direction:row;overflow-x:auto;gap:5px;margin:-6px 0 0;padding:0 0 12px}.sidebar .side-bottom>button{flex:none;white-space:nowrap;font-size:12px;padding:9px 10px;border-radius:9px;color:#64737b;min-height:44px}.sidebar .side-bottom .account{display:none}.sidebar nav button{min-height:44px}.policy-links .account-link{display:inline-flex;align-items:center;min-height:44px;margin-top:-8px;margin-bottom:-8px}.topbar .policy-links .policy-link{display:none}.legal-nav a,.footer-links a{display:inline-flex;align-items:center;min-height:44px;margin-top:-7px;margin-bottom:-7px}.searchbox{min-height:44px}.searchbox input{align-self:stretch;min-height:42px}.match-row button{min-height:44px;margin-top:-10px;margin-bottom:-10px}}
+
+/* Search-first home (search box, then topic and state quick links, then the existing hero and match form) */
+.home-search{margin-bottom:18px}
+.home-search .search-panel-label{font-size:15px;margin-bottom:16px}
+.home-search-fields .home-search-q{flex:2 1 280px}
+.home-search-fields .home-search-state{flex:1 1 170px}
+.home-search-actions{display:flex;gap:10px;flex-wrap:wrap}
+.home-search-actions .btn{min-height:43px}
+.quick-links{display:flex;flex-wrap:wrap;gap:14px 28px;margin:0 0 30px}
+.quick-links>div{min-width:0}
+.quick-links-title{margin:0 0 8px;font-size:12px;font-weight:600;color:#63737d}
+.quick-links ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.quick-links a{display:inline-flex;align-items:center;min-height:36px;padding:0 13px;border:1px solid #dce4ea;border-radius:999px;background:#fff;color:#087d68;font-size:13px;font-weight:600;text-decoration:none}
+.quick-links a:hover{border-color:#087d68}
+.quick-links a:focus-visible{outline:2px solid #087d68;outline-offset:2px}
+@media(max-width:640px){.home-search-actions{flex-basis:100%}.home-search-actions .btn{flex:1 1 0;min-width:0}.quick-links{gap:14px;margin-bottom:24px}.quick-links a{min-height:40px;font-size:13px}}
