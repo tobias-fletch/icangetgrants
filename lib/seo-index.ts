@@ -356,7 +356,7 @@ export function hubContent(site: SeoSite): HubContent {
     description: 'Find grants, scholarships and student aid by state and category. Live counts, upcoming deadlines and official links.',
     h1: 'Browse grants by state and category',
     intro: [
-      `${site.open.length} listings in the ${SITE_NAME} catalog aren't closed right now. Pick a topic or a state to see them with deadlines and links to each funder's page.`,
+      `${site.open.length} listings that aren't closed are on these pages. Same-page duplicates and site-link labels are left off, so search on the home page can show a few more. Pick a topic or a state to see them with deadlines and links to each funder's page.`,
       `State pages appear only where we have at least ${SEO_THRESHOLD} state-specific listings; right now that is ${states.length ? listJoin(states.map(s => s.label)) : 'no state'}.`,
     ],
     categories, states, stateCategories: pages.filter(p => p.type === 'stateCategory').map(toLink),

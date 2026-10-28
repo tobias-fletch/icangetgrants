@@ -278,6 +278,15 @@ test('junk filter drops form/link labels and same-page duplicates only, never ca
   assert.deepEqual(X.seoExclusions([cos('1'), cos('2')]), []);
 });
 
+test('the /grants hub count is the pages count and says why search can show more', () => {
+  const hub = S.hubContent(site);
+  const total = fx.grants.filter(g => /^https?:/.test(g.url || '')).length;
+  assert.equal(hub.openCount, Object.keys(index.listings).length);
+  assert.match(hub.intro[0], new RegExp(`^${hub.openCount} listings that aren't closed are on these pages\\. Same-page duplicates and site-link labels are left off, so search on the home page can show a few more\\.`));
+  assert.doesNotMatch(hub.intro[0], /in the .* catalog aren't closed/);
+  assert.ok(hub.openCount < total);
+});
+
 test('stored page data stays well under the D1 row limit (about 1 MB)', () => {
   const bytes = Buffer.byteLength(JSON.stringify(index), 'utf8');
   assert.ok(bytes < 1_000_000, `seo-index row is ${bytes} bytes`);
