@@ -1,0 +1,43 @@
+{
+ "_source": "Real api.grants.gov/v1/api/fetchOpportunity response for 358676, captured 2026-10-28, trimmed to the fields the app reads.",
+ "id": 358676,
+ "opportunityNumber": "PDS-CAIRO-001-FY25",
+ "opportunityTitle": "U.S. Embassy Cairo Public Diplomacy Section  Annual Program Statement",
+ "forecast": {
+  "forecastDesc": "<p>PDS Cairo invites proposals for programs that strengthen cultural ties and mutual understanding between the United States and Egypt through cultural, economic, educational, and professional programming.</p>",
+  "costSharing": false,
+  "applicantEligibilityDesc": "As stated in the APS",
+  "applicantTypes": [
+   {
+    "id": "25",
+    "description": "Others (see text field entitled \"Additional Information on Eligibility\" for clarification)"
+   },
+   {
+    "id": "12",
+    "description": "Nonprofits having a 501(c)(3) status with the IRS, other than institutions of higher education"
+   },
+   {
+    "id": "13",
+    "description": "Nonprofits that do not have a 501(c)(3) status with the IRS, other than institutions of higher education"
+   },
+   {
+    "id": "21",
+    "description": "Individuals"
+   }
+  ],
+  "fundingActivityCategories": [
+   {
+    "id": "AR",
+    "description": "Arts"
+   },
+   {
+    "id": "ED",
+    "description": "Education"
+   },
+   {
+    "id": "O",
+    "description": "Other (see text field entitled \"Explanation of Other Category of Funding Activity\" for clarification)"
+   }
+  ]
+ }
+}

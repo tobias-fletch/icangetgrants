@@ -1,0 +1,384 @@
+{
+ "_source": "Real fundhub.wa.gov/wp-json/wp/v2/funding records (funding-type 6), captured 2026-10-28; descriptions trimmed.",
+ "records": [
+  {
+   "id": 1695,
+   "modified": "2026-01-27T10:52:13",
+   "link": "https://fundhub.wa.gov/funding/agriculture-and-food-research-initiative-competitive-grants-program-education-and-workforce-development/",
+   "title": {
+    "rendered": "Agriculture and Food Research Initiative Competitive Grants Program Education and Workforce Development"
+   },
+   "funding-type": [
+    6
+   ],
+   "funding-audience": [
+    65,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    8
+   ],
+   "acf": {
+    "funding_status": "active",
+    "featured_funding": false,
+    "internal_reference_id": "",
+    "external_reference_id": "grantsgov_361169",
+    "application_open_date": "20260120",
+    "application_close_date": "20261231",
+    "application_close_time": "00:00",
+    "expiry_date": null,
+    "period_of_performance_start": null,
+    "period_of_performance_end": null,
+    "fund_published_date": "20260120",
+    "open_date": null,
+    "federal_or_state": "federal",
+    "source": "US Department of Agriculture",
+    "total_amount": "39,700,000",
+    "number_of_awards": "245",
+    "award_start": "10000",
+    "ending_amount": "650000",
+    "disbursement_notes": "",
+    "cost_share": "yes",
+    "description": "The Agriculture and Food Research Initiative - Education and Workforce Development focuses on developing the next generation of research, education, and extension professionals in the food and agricultural sciences. The National Institute of Food and Agriculture requests applications for the AFRI\u2019s Education and Workforce Development program areas to support: professional development for K-14 educational professionals, non-formal education for youth, workforce training at community/junior/techni",
+    "pre_application": "no",
+    "eligibility": "<h4>Eligible Entities</h4>\r\nFor <strong>Research, Education, or Extension Projects</strong>, eligible entities include:\r\n\r\n\u2022 State Agricultural Experiment Stations\r\n\u2022 Colleges and universities (including junior colleges offering associate degrees or higher)\r\n\u2022 University research foundations\r\n\u2022 Other research institutions and organizations\r\n\u2022 Federal agencies\r\n\u2022 National laboratories\r\n\u2022 Private organizations or corporations\r\n\u2022 U.S. citizens, nationals, permanent residents\r\n\u2022 Groups consisting of",
+    "requirements": "1:1 cost share is required for this grant.\r\n\r\nProfessional Development for Agricultural Literacy (A7501) Grants: due<strong> Thursday, March 19, 2026</strong>\r\nAgricultural Workforce Training (A7601) Grants: due <strong>Thursday, March 19, 2026</strong>\r\nFood and Agricultural Non-formal Education (A7801): due <strong>Thursday, March 19, 2026</strong>\r\nResearch and Extension Experiences for Undergraduates (A7401): due <strong>Thursday, March 19, 2026</strong>\r\nPredoctoral Fellowships (A7101): due",
+    "application_link": {
+     "url": "http://_blank",
+     "title": "Apply Now",
+     "target": "_blank"
+    },
+    "contact": "<strong>Program Area Priority Contacts</strong>\r\n\r\nProfessional Development for Agricultural Literacy (A7501) Grants: <strong>A7501@usda.gov</strong>\r\nAgricultural Workforce Training (A7601) Grants: <strong>A7601@usda.gov</strong>\r\nFood and Agricultural Non-formal Education (A7801): <strong>A7801@usda.gov</strong>\r\nResearch and Extension Experiences for Undergraduates (A7401): <strong>A7401@usda.gov</strong>\r\nPredoctoral Fellowships (A7101): <strong>nifafellows@usda.gov</strong>\r\nPostdoctoral Fe",
+    "technical_assistance_contact": "Other NOFO or application questions, please email: <strong>grantapplicationquestions@usda.gov</strong>",
+    "resources": "<a href=\"https://www.nifa.usda.gov/grants/funding-opportunities/agriculture-food-research-initiative-education-workforce-development\" target=\"_blank\" rel=\"noopener\">Agriculture and Food Research Initiative - Education and Workforce Development</a>\r\n<a href=\"https://www.nifa.usda.gov/sites/default/files/2026-01/FY26-AFRI-EWD-NOFO-P.pdf\">AFRI Education Workforce Development NOFO</a>\r\n<a href=\"https://www.nifa.usda.gov/grants/programs/agriculture-food-research-initiative/faq\">AFRI Frequently Asked ",
+    "score": 7,
+    "score_reason": "This opportunity strongly supports workforce development, education, and agriculture and is applicable in Washington State. While not directly focused on clean energy, sustainability, or resiliency, it highly aligns with climate mitigation through agricultural research, youth engagement, and training\u2014the core areas in primary and secondary scoring criteria."
+   }
+  },
+  {
+   "id": 2231,
+   "modified": "2026-10-13T12:42:17",
+   "link": "https://fundhub.wa.gov/funding/anaerobic-dairy-digester-program/",
+   "title": {
+    "rendered": "Anaerobic Dairy Digester Program"
+   },
+   "funding-type": [
+    6
+   ],
+   "funding-audience": [
+    65,
+    19,
+    20,
+    22,
+    23,
+    8,
+    25
+   ],
+   "acf": {
+    "funding_status": "active",
+    "featured_funding": false,
+    "internal_reference_id": "WAFHW2231",
+    "external_reference_id": "",
+    "application_open_date": "20261012",
+    "application_close_date": "20261201",
+    "application_close_time": "",
+    "expiry_date": "20261206",
+    "period_of_performance_start": null,
+    "period_of_performance_end": null,
+    "fund_published_date": null,
+    "open_date": null,
+    "federal_or_state": "state",
+    "source": "Washington State Department of Commerce ",
+    "total_amount": "10,544,325",
+    "number_of_awards": "",
+    "award_start": "",
+    "ending_amount": "",
+    "disbursement_notes": "",
+    "cost_share": "no",
+    "description": "The Anaerobic Dairy Digester Program has $10,544,325 available for grants to build, repair or upgrade systems that capture methane from dairy manure and other organic waste. These systems reduce greenhouse gas emissions while producing renewable energy, fertilizer and other useful products.",
+    "pre_application": "no",
+    "eligibility": "All projects must meet each of the following criteria:\r\n<ul>\r\n \t<li>Project cannot be a feasibility study.</li>\r\n \t<li>Project must be located in the state of Washington at or adjacent to an existing dairy.</li>\r\n \t<li>Project must meet all relevant laws and regulations for Washington state-funded public works projects, including but not limited to prevailing wage requirements.</li>\r\n \t<li>Project must measurably reduce greenhouse gas emissions and/or untreated effluent.</li>\r\n \t<li>The anaerobi",
+    "requirements": "This Request for Applications (RFA) sets aside:\r\n<ul>\r\n \t<li>$2 million for cover-and-flare manure management projects.</li>\r\n \t<li>$3 million for projects that have received funding through the U.S. Department of Agriculture\u2019s Regional Conservation Partnership Program.</li>\r\n</ul>\r\nApplicants must be licensed to do business in Washington. Applicants that are not currently licensed must commit to becoming licensed within 30 calendar days of being selected for an award. This requirement does not ",
+    "application_link": {
+     "title": "https://app.smartsheet.com/b/form/01a0ceb4427f7a77a371ec61eefde861",
+     "url": "https://app.smartsheet.com/b/form/01a0ceb4427f7a77a371ec61eefde861",
+     "target": "_blank"
+    },
+    "contact": "Noah Martin, program manager\r\n<a href=\"mailto:EPICgrants@commerce.wa.gov\">EPICgrants@commerce.wa.gov</a>",
+    "technical_assistance_contact": "",
+    "resources": "<h2>How to apply</h2>\r\nReview the <a href=\"https://links-2.govdelivery.com/CL0/https:%2F%2Fdeptofcommerce.app.box.com%2Fs%2Forzi9ztrdofmxhpu8dar9e6k08hwpux4/1/010101a1306c142d-64f0920f-357c-455d-969d-b1c83eb36e25-000000/8BDqN8k01Xec9qQrmpcf0LFaQ5hP3wvG2IXbKYzH3Bo=452\">application materials</a>\r\n\r\nAttend the Pre-application Conference on Oct. 20, 11 a.m PST: <a href=\"https://links-2.govdelivery.com/CL0/https:%2F%2Fwastatecommerce.zoom.us%2Fmeeting%2Fregister%2FqsjfDl9tSn2du1dEKEub2A/1/010101a1306",
+    "score": 0,
+    "score_reason": ""
+   }
+  },
+  {
+   "id": 2230,
+   "modified": "2026-10-13T08:31:45",
+   "link": "https://fundhub.wa.gov/funding/diesel-reduction-combined-funding-program/",
+   "title": {
+    "rendered": "Diesel Reduction Combined Funding Program"
+   },
+   "funding-type": [
+    6
+   ],
+   "funding-audience": [
+    19,
+    20,
+    22,
+    24,
+    8,
+    25
+   ],
+   "acf": {
+    "funding_status": "active",
+    "featured_funding": false,
+    "internal_reference_id": "WAFHW2230",
+    "external_reference_id": "",
+    "application_open_date": "20260908",
+    "application_close_date": "20261210",
+    "application_close_time": "",
+    "expiry_date": "20261215",
+    "period_of_performance_start": null,
+    "period_of_performance_end": null,
+    "fund_published_date": null,
+    "open_date": null,
+    "federal_or_state": "state",
+    "source": "Washington State Department of Ecology",
+    "total_amount": "18,500,000",
+    "number_of_awards": "",
+    "award_start": "400000",
+    "ending_amount": "1500000",
+    "disbursement_notes": "",
+    "cost_share": "",
+    "description": "Washington State Department of Ecology is offering $18.5 million to scrap and replace old diesel vehicles and equipment with all electric vehicles and equipment. Funding is also available to install charging infrastructure to support the projects.",
+    "pre_application": "no",
+    "eligibility": "<h3>Who is eligible to apply?</h3>\r\n<ul>\r\n \t<li>Businesses licensed in Washington</li>\r\n \t<li>Non-profit 501(c)(3) organizations</li>\r\n \t<li>Public organizations</li>\r\n \t<li>Tribal governments</li>\r\n</ul>",
+    "requirements": "<h3>What vehicles and equipment qualify?</h3>\r\nThis is an opportunity for projects that replace or repower:\r\n\r\nOn road vehicles, class 4-8, engine model year 1992-2017\r\n<ul>\r\n \t<li>Emergency vehicles</li>\r\n \t<li>Local freight vehicles</li>\r\n \t<li>Vocational vehicles (sweepers , refuse, etc.)</li>\r\n</ul>\r\nNon road vehicles\r\n<ul>\r\n \t<li>Forklifts (&gt; 8,000 lb. lift capacity)</li>\r\n \t<li>Cargo handling equipment</li>\r\n \t<li>Yard trucks/terminal tractors</li>\r\n</ul>",
+    "application_link": "",
+    "contact": "Questions?\r\n\r\nDiesel Reduction Team\r\n\r\n<a href=\"mailto:aqcleanvehiclegrants@ecy.wa.gov\">aqcleanvehiclegrants@ecy.wa.gov</a>\r\n\r\n(564) 233-9147\r\n\r\n&nbsp;\r\n\r\nVolkswagen Settlement Team\r\n\r\n<a href=\"mailto:vwsettlements@ecy.wa.gov\">vwsettlements@ecy.wa.gov</a>\r\n\r\n(564) 233-9146",
+    "technical_assistance_contact": "",
+    "resources": "Application information will be posted on Ecology's <a href=\"https://links-1.govdelivery.com/CL0/https:%2F%2Fecology.wa.gov%2Fabout-us%2Fpayments-contracts-grants%2Fgrants-loans%2Ffind-a-grant-or-loan%2Fclean-diesel-grants%3Futm_medium=email%26utm_source=govdelivery/1/010001a1314bb23c-717f328a-f239-410d-bcb6-424dd76ac9f3-000000/QmLAsg7U-6Qk-o-lzCTHnTdT-M0hdq5gAadKiehShrU=452\">diesel reduction grants webpage</a> and\u00a0 <a href=\"https://links-1.govdelivery.com/CL0/https:%2F%2Fecology.wa.gov%2Fabout-",
+    "score": 0,
+    "score_reason": ""
+   }
+  },
+  {
+   "id": 2216,
+   "modified": "2026-10-08T15:44:19",
+   "link": "https://fundhub.wa.gov/funding/specialty-crop-block-grant-program/",
+   "title": {
+    "rendered": "Specialty Crop Block Grant Program"
+   },
+   "funding-type": [
+    6,
+    67
+   ],
+   "funding-audience": [
+    65,
+    19,
+    20,
+    22,
+    23,
+    24
+   ],
+   "acf": {
+    "funding_status": "active",
+    "featured_funding": false,
+    "internal_reference_id": "WAFHW2216",
+    "external_reference_id": "",
+    "application_open_date": "20261002",
+    "application_close_date": "20261102",
+    "application_close_time": "",
+    "expiry_date": null,
+    "period_of_performance_start": "20270930",
+    "period_of_performance_end": "20300929",
+    "fund_published_date": "20261002",
+    "open_date": "20261002",
+    "federal_or_state": "state",
+    "source": "Washington State Department of Agriculture",
+    "total_amount": "4,700,000",
+    "number_of_awards": "",
+    "award_start": "25000",
+    "ending_amount": "250000",
+    "disbursement_notes": "",
+    "cost_share": "",
+    "description": "For the Washington State Department of Agriculture (WSDA) to administer a competitive solicitation process to award \r\n2026 Specialty Crop Block Grant Program (SCBGP) funds for proposals that enhance the competitiveness and increase \r\ndemand of Washington specialty crops. \r\n\r\nSpecialty crops are defined by USDA as fruits, vegetables, tree nuts, dried fruits, horticulture, and nursery crops (including \r\nfloriculture). ",
+    "pre_application": "yes",
+    "eligibility": "Eligible organizations include:\r\n<ul>\r\n \t<li>industry associations</li>\r\n \t<li>producer groups</li>\r\n \t<li>commodity commissions</li>\r\n \t<li>non-profit organizations</li>\r\n \t<li>for-profit organizations</li>\r\n \t<li>local, state, and federal government entities</li>\r\n \t<li>educational institutions</li>\r\n</ul>\r\nProjects cannot benefit a single commercial product. Projects cannot provide a profit to a single organization, institution, or individual. Recipients cannot use grant funds to compete with",
+    "requirements": "A two-phase competitive process will take place to award an estimated $4.7 million dollars.\r\n<ol>\r\n \t<li>Phase I, Concept Proposal: Applicants must apply online following the instructions and requirements outlined in the RFP. The deadline to submit a Concept Proposal for 2027 funding is 12:00 p.m. (PST) on November 2, 2026. Late submittals will NOT be accepted.</li>\r\n \t<li>Phase II, Grant Proposal: Successful Phase I applicants will be invited to submit a Full Grant Proposal.</li>\r\n</ol>\r\nMore i",
+    "application_link": {
+     "title": "https://agr.wa.gov/services/grant-opportunities/specialty-crop-block-grant-program?utm_medium=email&utm_source=govdelivery",
+     "url": "https://agr.wa.gov/services/grant-opportunities/specialty-crop-block-grant-program?utm_medium=email&utm_source=govdelivery",
+     "target": "_blank"
+    },
+    "contact": "For any questions regarding Washington State\u2019s Specialty Crop Block Grant Program\u2019s requirements or eligibility, <a href=\"mailto:specialtycrop@agr.wa.gov\">please email the Specialty Crop Block Grant team</a> or call 360-485-1255.",
+    "technical_assistance_contact": "",
+    "resources": "More information: <a href=\"https://agr.wa.gov/services/grant-opportunities/specialty-crop-block-grant-program?utm_medium=email&amp;utm_source=govdelivery\">Specialty Crop Block Grant Program | Washington State Department of Agriculture</a>.",
+    "score": 0,
+    "score_reason": ""
+   }
+  },
+  {
+   "id": 2235,
+   "modified": "2026-10-21T10:05:33",
+   "link": "https://fundhub.wa.gov/funding/energy-technology-innovation-partnership-project/",
+   "title": {
+    "rendered": "Energy Technology Innovation Partnership Project"
+   },
+   "funding-type": [
+    6
+   ],
+   "funding-audience": [
+    20,
+    22,
+    23,
+    76,
+    8
+   ],
+   "acf": {
+    "funding_status": "active",
+    "featured_funding": false,
+    "internal_reference_id": "WAFHW2235",
+    "external_reference_id": "",
+    "application_open_date": "20260824",
+    "application_close_date": "20261118",
+    "application_close_time": "",
+    "expiry_date": "20261123",
+    "period_of_performance_start": null,
+    "period_of_performance_end": null,
+    "fund_published_date": null,
+    "open_date": null,
+    "federal_or_state": "federal",
+    "source": "Department of Energy - National Lab of the Rockies",
+    "total_amount": "",
+    "number_of_awards": "",
+    "award_start": "0",
+    "ending_amount": "50000",
+    "disbursement_notes": "",
+    "cost_share": "no",
+    "description": "The U.S. Department of Energy's (DOE) Energy Technology Innovation Partnership Project (ETIPP) works alongside coastal, remote, and island communities that are seeking to improve the resilience, affordability, and reliability of their energy systems. ETIPP helps these communities overcome the unique geographical and logistical challenges that limit their access to affordable, reliable, and secure energy resources.\r\n\r\nThis multi-year, cross-sector technical assistance program applies a tailored a",
+    "pre_application": "no",
+    "eligibility": "ETIPP is open to communities and organizations in the United States and its territories. To be eligible for the program, a community must be based in an <a href=\"https://www.nlr.gov/state-local-tribal/etipp-technical-assistance#regions\">ETIPP-supported region</a>, as defined by the program's existing Regional Partners and must meet at least one of these criteria:\r\n<ul>\r\n \t<li>The applicant community is located on an island.</li>\r\n \t<li>The applicant community is located in Alaska.</li>\r\n \t<li>Th",
+    "requirements": "ETIPP offers two tracks: strategic energy planning (four to eight months) and deep-dive technical assistance (12 to 24 months) for specific energy projects. Selected communities receive support for a project scoping phase, followed by energy planning and analysis projects that:\r\n<ul>\r\n \t<li data-list-item-id=\"e142da2263e97957e861e965b3147aafc\">Address the community's energy priorities, goals, challenges, and opportunities.</li>\r\n \t<li data-list-item-id=\"e80c383c3b6c986f8511e4f5a3c7e2cb7\">Advance",
+    "application_link": {
+     "title": "https://www.nlr.gov/state-local-tribal/etipp-technical-assistance",
+     "url": "https://www.nlr.gov/state-local-tribal/etipp-technical-assistance",
+     "target": "_blank"
+    },
+    "contact": "Interested communities should contact the Regional Partner that best represents their geographic location, or email <a href=\"mailto:ETIPP@nlr.gov\">ETIPP@nlr.gov</a> to get connected to the appropriate organization. Communities may also contact an ETIPP Regional Partner to learn about other technical support or funding opportunities.\r\n\r\nNorthwest Region:\r\n\r\n<a href=\"https://sparknorthwest.org/\">Spark Northwest</a>\r\nMia Devine\r\n<a href=\"mailto:mia@sparknorthwest.org\">mia@sparknorthwest.org\r\n</a>20",
+    "technical_assistance_contact": "",
+    "resources": "<a href=\"https://www.energy.gov/cmei/energy-technology-innovation-partnership-project\">Energy Technology Innovation Partnership Project | Department of Energy</a>\r\n\r\n<a href=\"https://www.nlr.gov/state-local-tribal/energy-technology-innovation-partnership-project\">Energy Technology Innovation Partnership Project | State, Local, and Tribal Governments | NLR</a>\r\n\r\nRead the <a href=\"https://www.nlr.gov/docs/libraries/state-local-tribal/etipp-terms-and-conditions-20266e8fdfe2250049d6b0096d9c431a3aae",
+    "score": 0,
+    "score_reason": ""
+   }
+  },
+  {
+   "id": 2190,
+   "modified": "2026-09-09T12:51:47",
+   "link": "https://fundhub.wa.gov/funding/2026-national-urban-and-community-forestry-challenge-cost-share-grant-program/",
+   "title": {
+    "rendered": "2026 National Urban and Community Forestry Challenge Cost Share Grant Program"
+   },
+   "funding-type": [
+    6
+   ],
+   "funding-audience": [
+    22,
+    23,
+    24,
+    8
+   ],
+   "acf": {
+    "funding_status": "closed",
+    "featured_funding": false,
+    "internal_reference_id": "WAFHW2190",
+    "external_reference_id": "",
+    "application_open_date": "20260813",
+    "application_close_date": "20261012",
+    "application_close_time": "",
+    "expiry_date": null,
+    "period_of_performance_start": "20261212",
+    "period_of_performance_end": null,
+    "fund_published_date": null,
+    "open_date": null,
+    "federal_or_state": "federal",
+    "source": "Department of Agriculture - Forest Service",
+    "total_amount": "1,000,000",
+    "number_of_awards": "5",
+    "award_start": "200000",
+    "ending_amount": "750000",
+    "disbursement_notes": "",
+    "cost_share": "yes",
+    "description": "FY26 funding under the National Urban and Community Forestry Challenge Cost Share Grant Program will address Community Tree Resource Utilization. Waste reduction and product creation through the economic use of community tree resources at the end of their life cycle. Whether generated through pruning or removal, community wood \u201cwaste\u201d can be turned into useful products that benefit the community, its economy, and its environment.",
+    "pre_application": "no",
+    "eligibility": "<h4>Eligible Entities</h4>\r\n<ul>\r\n \t<li data-section-id=\"bi7dr1\" data-start=\"63\" data-end=\"122\">U.S. State Government, including the District of Columbia</li>\r\n \t<li data-section-id=\"9lfn24\" data-start=\"123\" data-end=\"200\">U.S. Territory or Possession Government</li>\r\n \t<li data-section-id=\"1o29vjv\" data-start=\"201\" data-end=\"278\">Federally Recognized Indian/Native American/Alaska Native Tribal Government</li>\r\n \t<li data-section-id=\"t4r5il\" data-start=\"279\" data-end=\"369\">Indian/Native American",
+    "requirements": "All applicants must demonstrate a 1:1 match of federal funds to non-federal funds, which may be in the form of cash, services, or in-kind contributions.",
+    "application_link": {
+     "title": "Apply Now",
+     "url": "https://www.grants.gov/search-results-detail/361315",
+     "target": ""
+    },
+    "contact": "For program information contact <strong>Nancy Stremple</strong>, National Urban and Community Forestry Specialist at SM.FS.nucfac@usda.gov.",
+    "technical_assistance_contact": "",
+    "resources": "<a href=\"https://www.fs.usda.gov/managing-land/urban-forests/ucf\">Urban and Community Forestry Program | US Forest Service</a>\r\n<a href=\"https://www.grants.gov/search-results-detail/361315\">Grants.gov Application Platform</a>",
+    "score": 0,
+    "score_reason": ""
+   }
+  },
+  {
+   "id": 2175,
+   "modified": "2026-09-01T11:46:03",
+   "link": "https://fundhub.wa.gov/funding/community-forest-and-open-space-conservation-program-2/",
+   "title": {
+    "rendered": "Community Forest and Open Space Conservation Program"
+   },
+   "funding-type": [
+    6
+   ],
+   "funding-audience": [
+    22,
+    23,
+    8
+   ],
+   "acf": {
+    "funding_status": "closed",
+    "featured_funding": false,
+    "internal_reference_id": "WAFHW2175",
+    "external_reference_id": "",
+    "application_open_date": "20260812",
+    "application_close_date": "20261013",
+    "application_close_time": "",
+    "expiry_date": null,
+    "period_of_performance_start": null,
+    "period_of_performance_end": null,
+    "fund_published_date": null,
+    "open_date": null,
+    "federal_or_state": "federal",
+    "source": "Department of Agriculture - Forest Service",
+    "total_amount": "4,950,000",
+    "number_of_awards": "6-10",
+    "award_start": "1",
+    "ending_amount": "600000",
+    "disbursement_notes": "",
+    "cost_share": "yes",
+    "description": "The Community Forest Program is a competitive grant program that provides financial assistance to federally recognized Indian Tribes, local governments, and qualified conservation non-profit organizations to establish community forests through the fee simple acquisition of private forest land.",
+    "pre_application": "no",
+    "eligibility": "<h4>Eligible Entities</h4>\r\n<ul>\r\n \t<li>Federally recognized Indian/Native American/Alaska Native Tribal Governments</li>\r\n \t<li>Local government entities (County Government, Municipality or Township Government)</li>\r\n \t<li>Nonprofit organizations that are qualified to acquire and manage land</li>\r\n</ul>\r\n<h4>Eligible Activities</h4>\r\nThe intent of Community Forest Program funds is to acquire private forest land threatened by conversion to non-forest uses and establish community forest that prov",
+    "requirements": "<ul>\r\n \t<li>All applicants must demonstrate a 1:1 match of federal funds to non-federal funds for the total project cost, which may include cash, in-kind services, or donations from a non-Federal source. Cost share is not required for requested technical assistance funds.</li>\r\n \t<li>Land eligible for grants funded under this program is private forest land that is suitable to sustain natural vegetation and provides community benefits under Community Forest Program and is:\r\n<ul>\r\n \t<li>At least 7",
+    "application_link": {
+     "title": "Apply Now",
+     "url": "https://www.grants.gov/search-results-detail/363348",
+     "target": ""
+    },
+    "contact": "General questions about the program or grant applications may be directed to: <a href=\"mailto:SM.FS.CFP@usda.gov\">FS.CFP@usda.gov</a>.\r\n\r\nApplicants are also encouraged to reach out to and work with the appropriate Forest Service points of contact (below) during the application process before submission. Please contact the appropriate Forest Service contact if you would like review and feedback on your application and maps before submitting the final application.\r\n\r\n<strong>Forest Service Point ",
+    "technical_assistance_contact": "",
+    "resources": "<a href=\"https://www.fs.usda.gov/managing-land/private-land/community-forest/program\">How the Community Forest Program Works | US Forest Service</a>\r\n<a href=\"https://research.fs.usda.gov/iitf/about/sptf/communityforestprogram\">Community Forest and Open Space Program | US Forest Service Research and Development</a>\r\n<a href=\"https://www.grants.gov/search-results-detail/363348\">Grants.gov Application Platform</a>\r\n<a href=\"https://www.stateforesters.org/who-we-are/our-membership/\">Our Membership ",
+    "score": 0,
+    "score_reason": ""
+   }
+  }
+ ]
+}
