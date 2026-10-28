@@ -344,7 +344,7 @@ test('studentaid.gov refusing the connection: health stays ok, a warning is show
   assert.deepEqual(r.errors,[]);assert.equal(r.warnings.length,1);assert.match(r.warnings[0],new RegExp('^TEACH Grant: studentaid\\.gov '+kind.replace(/[()]/g,'\\$&')+' on Oct 28, 2026\\. Listing kept; next check after Nov 4, 2026\\.$'));
   assert.equal(r.kept,1,'the stored row is left untouched');assert.deepEqual(r.records,[]);assert.equal(r.checks.teach.lastAttempt,NOW);assert.equal(r.checks.teach.lastError,kind);
  }
- assert.equal(S.refusalKind(new Error('HTTP 500')),null);assert.equal(S.refusalKind(new Error('Source requires browser access')),null);
+ assert.equal(S.refusalKind(new Error('HTTP 404')),null);assert.equal(S.refusalKind(new Error('Source requires browser access')),null);
  // No stored row yet: a link-only record with the studentaid.gov link is stored, and it is publicly listed.
  const r=await runChecks({existing:new Map(),fetchHtml:async()=>{throw refused('TimeoutError','The operation was aborted due to timeout');}});
  assert.equal(r.records.length,1);const g=r.records[0];assert.equal(g.id,'teach');assert.equal(g.url,'https://studentaid.gov/understand-aid/types/grants/teach');assert.equal(g.sourceMode,'Link check only');assert.equal(S.isHiddenListing(g,NOW),false);assert.equal(S.isHiddenListing(teachRow,NOW),false);
@@ -361,8 +361,56 @@ test('any other failing source still makes health partial, with or without a stu
  let h=run([{name:'Official student aid programs',status:'Connected',warnings:warn},{name:'California Grants Portal',status:'Unavailable',error:'HTTP 503'}]);
  assert.equal(h.status,'partial');assert.deepEqual(h.failedSources,['California Grants Portal']);assert.equal(h.warnings.length,1);
  h=run([{name:'Poets & Writers',status:'Partial',error:'Page 2: HTTP 500'}]);assert.equal(h.status,'partial');assert.deepEqual(h.warnings,[]);
- // A studentaid.gov error that is not a refusal (HTTP 500) is a real failure: not an attempt, retried next run.
- const r=await runChecks({fetchHtml:async()=>{throw new Error('HTTP 500');}});
- assert.deepEqual(r.warnings,[]);assert.deepEqual(r.errors,['TEACH Grant: HTTP 500']);assert.equal(r.checks.teach,undefined);assert.equal(r.kept,1);
+ // A studentaid.gov error that is not a refusal (HTTP 404) is a real failure: not an attempt, retried next run.
+ const r=await runChecks({fetchHtml:async()=>{throw new Error('HTTP 404');}});
+ assert.deepEqual(r.warnings,[]);assert.deepEqual(r.errors,['TEACH Grant: HTTP 404']);assert.equal(r.checks.teach,undefined);assert.equal(r.kept,1);
  h=run([{name:'Official student aid programs',status:'Partial',error:r.errors.join('; ')}]);assert.equal(h.status,'partial');assert.deepEqual(h.failedSources,['Official student aid programs']);
+});
+
+// ---------- studentaid.gov 5xx (Cloudflare 520 and friends) ----------
+test('studentaid.gov HTTP 520 or 503: health ok, a warning, the listing kept, and the attempt recorded so the next run skips it',async()=>{
+ const programs=['pell','fseog','teach'].map(id=>PR.aidPrograms.find(p=>p.id===id));
+ for(const code of [520,503]){
+  assert.equal(S.refusalKind(new Error('HTTP '+code)),'returned a server error (HTTP '+code+')');
+  let calls=0;const existing=new Map(programs.map(p=>[p.id,PR.checkedProgram(p,'<html>'+p.title+'</html>','2026-10-18T13:00:00.000Z')]));
+  const r=await PR.checkOfficialPrograms({programs,existing,checks:{},now:NOW,isBudgetError:B.isBudgetError,fetchHtml:async()=>{calls++;throw new Error('HTTP '+code);}});
+  assert.equal(calls,3);assert.deepEqual(r.errors,[]);assert.equal(r.warnings.length,3);assert.equal(r.kept,3,'stored rows are left untouched');assert.deepEqual(r.records,[]);
+  for(const p of programs){assert.equal(r.checks[p.id].lastAttempt,NOW);assert.equal(r.checks[p.id].lastError,'returned a server error (HTTP '+code+')');}
+  assert.match(r.warnings.find(w=>w.startsWith('TEACH Grant')),new RegExp('^TEACH Grant: studentaid\\.gov returned a server error \\(HTTP '+code+'\\) on Oct 28, 2026\\. Listing kept; next check after Nov 4, 2026\\.$'));
+  const h=S.refreshHealth({checkedAt:NOW,counts:{},sources:[{name:'Grants.gov',status:'Connected'},{name:'Official student aid programs',status:'Connected',records:3,warnings:r.warnings}]},{at:NOW,ok:true},Date.parse(NOW));
+  assert.equal(h.status,'ok');assert.deepEqual(h.failedSources,[]);assert.equal(h.warnings.length,3);
+  // Next run (a day later): not due, so no fetch; the warning stays visible and the listings stay kept.
+  const next=await PR.checkOfficialPrograms({programs,existing,checks:r.checks,now:'2026-10-29T16:00:00.000Z',isBudgetError:B.isBudgetError,fetchHtml:async()=>{calls++;throw new Error('should not fetch');}});
+  assert.equal(calls,3,'skipped until the weekly recheck');assert.equal(next.skipped.length,3);assert.equal(next.kept,3);assert.equal(next.warnings.length,3);assert.deepEqual(next.errors,[]);
+  // A week later it is due again.
+  const week=await PR.checkOfficialPrograms({programs,existing,checks:r.checks,now:'2026-11-04T16:00:00.000Z',isBudgetError:B.isBudgetError,fetchHtml:async(u)=>{calls++;return '<html>'+programs.find(p=>p.url===u).title+'</html>';}});
+  assert.equal(calls,6);assert.equal(week.records.length,3);assert.deepEqual(week.warnings,[]);
+ }
+});
+test('5xx from any other source still makes health partial; only the studentaid.gov weekly check uses refusalKind',async()=>{
+ // Non-studentaid program pages (NY TAP) are not weekly, so a 5xx there is still an error.
+ const tap=PR.aidPrograms.find(p=>p.id==='ny-tap');
+ const r=await PR.checkOfficialPrograms({programs:[tap],existing:new Map(),checks:{},now:NOW,isBudgetError:B.isBudgetError,fetchHtml:async()=>{throw new Error('HTTP 520');}});
+ assert.deepEqual(r.warnings,[]);assert.deepEqual(r.errors,['New York Tuition Assistance Program (TAP): HTTP 520']);assert.equal(r.checks['ny-tap'],undefined);
+ const run=sources=>S.refreshHealth({checkedAt:NOW,counts:{},sources},{at:NOW,ok:true},Date.parse(NOW));
+ for(const [name,error] of [['California Grants Portal','HTTP 520'],['Washington FundHub','HTTP 503'],['CareerOneStop Scholarship Finder','HTTP 502'],['Grants.gov','HTTP 500']]){
+  const h=run([{name,status:'Unavailable',error}]);assert.equal(h.status,'partial',name);assert.deepEqual(h.failedSources,[name]);assert.deepEqual(h.warnings,[]);
+ }
+ // refusalKind is called only from the weekly studentaid.gov check, and only for weekly pages.
+ for(const f of ['lib/discovery.ts','lib/catalog.ts','lib/access.ts','lib/source-parsers.ts'])assert.doesNotMatch(readFileSync(f,'utf8'),/refusalKind\(/,f);
+ assert.match(readFileSync('lib/programs.ts','utf8'),/const kind=weekly\?refusalKind\(e\):null;/);
+ assert.match(readFileSync('lib/discovery.ts','utf8'),/'User-Agent':'ICanGetGrants\/1\.2 \(funding source discovery; \+https:\/\/icangetgrants\.com\)'/,'honest user agent unchanged');
+});
+test('studentaid.gov 404 or a changed page is still a failure',async()=>{
+ let r=await runChecks({fetchHtml:async()=>{throw new Error('HTTP 404');}});
+ assert.deepEqual(r.warnings,[]);assert.deepEqual(r.errors,['TEACH Grant: HTTP 404']);assert.equal(r.checks.teach,undefined,'not an attempt: retried next run');assert.equal(r.kept,1);
+ r=await runChecks({fetchHtml:async()=>{throw new Error('Source requires browser access');}});
+ assert.deepEqual(r.warnings,[]);assert.equal(r.errors.length,1);assert.equal(r.checks.teach,undefined);
+ // Changed page: fetched fine but the expected program text is gone. The record is link-check only and the
+ // source is reported Partial by discovery, so health is partial.
+ r=await runChecks({fetchHtml:async()=>'<html><body>Page moved</body></html>'});
+ assert.equal(r.linkOnly,true);assert.equal(r.records[0].live,false);assert.deepEqual(r.warnings,[]);
+ assert.match(readFileSync('lib/discovery.ts','utf8'),/if\(r\.errors\.length\)\{report\.status='Partial';report\.error=r\.errors\.join\('; '\);\}else if\(r\.linkOnly\)report\.status='Partial';/);
+ const h=S.refreshHealth({checkedAt:NOW,counts:{},sources:[{name:'Official student aid programs',status:'Partial',error:'TEACH Grant: HTTP 404'}]},{at:NOW,ok:true},Date.parse(NOW));
+ assert.equal(h.status,'partial');assert.deepEqual(h.failedSources,['Official student aid programs']);
 });
