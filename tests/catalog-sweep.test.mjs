@@ -9,11 +9,12 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const out=resolve('.sites-runtime/tests-catalog-sweep');mkdirSync(out,{recursive:true});
-for(const name of ['source-parsers','grants','listing','state-registry','fetch-budget','state-discovery','catalog-sweep']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
+for(const name of ['source-parsers','grants','listing','state-registry','fetch-budget','state-discovery','catalog-sweep','programs']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const S=await import(pathToFileURL(`${out}/catalog-sweep.mjs`).href);
 const B=await import(pathToFileURL(`${out}/fetch-budget.mjs`).href);
 const P=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
 const L=await import(pathToFileURL(`${out}/listing.mjs`).href);
+const PR=await import(pathToFileURL(`${out}/programs.mjs`).href);
 const fx=name=>readFileSync(`tests/fixtures/catalog-sweep/${name}`,'utf8');
 const search=JSON.parse(fx('grants-gov-search.json')),detailForecast=JSON.parse(fx('grants-gov-detail-forecast.json')),detailPosted=JSON.parse(fx('grants-gov-detail-posted.json'));
 const wa=JSON.parse(fx('wa-fundhub.json')).records,pw0=fx('pw-page0.html'),pw1=fx('pw-page1.html'),caCsv=fx('california-grants-portal.csv');
@@ -216,7 +217,7 @@ const okRun={checkedAt:'2026-10-28T14:00:00.000Z',counts:{added:12,updated:30,re
 const at=iso=>Date.parse(iso);
 test('health: ok, partial, failed and stale',()=>{
  const ok=S.refreshHealth(okRun,{at:okRun.checkedAt,ok:true},at('2026-10-28T15:00:00Z'));
- assert.deepEqual(ok,{status:'ok',checkedAt:okRun.checkedAt,lastAttemptAt:okRun.checkedAt,failedSources:[],added:12,updated:30,retired:2,deduped:3});
+ assert.deepEqual(ok,{status:'ok',checkedAt:okRun.checkedAt,lastAttemptAt:okRun.checkedAt,failedSources:[],warnings:[],added:12,updated:30,retired:2,deduped:3});
  const partial=S.refreshHealth({...okRun,sources:[...okRun.sources,{name:'California Grants Portal',status:'Unavailable',error:'HTTP 503'},{name:'Poets & Writers',status:'Partial',error:'x'},{name:'Official student aid programs',status:'Partial',deferred:2}]},null,at('2026-10-28T15:00:00Z'));
  assert.equal(partial.status,'partial');assert.deepEqual(partial.failedSources,['California Grants Portal','Poets & Writers'],'budget deferrals alone are not failures');
  const failed=S.refreshHealth(okRun,{at:'2026-10-28T16:00:00.000Z',ok:false,error:'D1 batch failed'},at('2026-10-28T16:01:00Z'));
@@ -314,4 +315,54 @@ test('fix 6: closed listings are hidden from public lists, search, counts and th
  const cat=readFileSync('lib/catalog.ts','utf8');assert.match(cat,/keepIds/);assert.match(cat,/isHiddenListing\(g, now\.getTime\(\)\)/);
  assert.match(readFileSync('app/api/workspace/route.ts','utf8'),/loadCatalog\(\{owner,keepIds:u\?state\.saved\.map\(s=>s\.grantId\):\[\]\}\)/);
  assert.match(readFileSync('lib/seo-index.ts','utf8'),/!isHiddenListing\(g, now\.getTime\(\)\)/);
+});
+
+// ---------- Weekly studentaid.gov checks ----------
+const teach=PR.aidPrograms.find(p=>p.id==='teach'),tap=PR.aidPrograms.find(p=>p.id==='ny-tap');
+const teachRow={...PR.checkedProgram(teach,'<html>TEACH Grant</html>','2026-10-18T13:00:00.000Z')};
+const refused=(name,message,code)=>{const e=new Error(message);e.name=name;if(code)e.cause={code};return e;};
+const runChecks=(o)=>PR.checkOfficialPrograms({programs:[teach],existing:new Map([['teach',teachRow]]),checks:{},now:NOW,isBudgetError:B.isBudgetError,fetchHtml:async()=>'<html>TEACH Grant</html>',...o});
+test('studentaid.gov programs are checked at most weekly, by last attempt (success or refusal)',async()=>{
+ assert.equal(PR.weeklyProgram(teach),true);assert.equal(PR.weeklyProgram(tap),false);
+ let calls=0;const fetchHtml=async()=>{calls++;return '<html>TEACH Grant</html>';};
+ let r=await runChecks({fetchHtml,checks:{teach:{lastAttempt:daysAgo(2),lastSuccess:daysAgo(2)}}});
+ assert.equal(calls,0,'checked 2 days ago: skipped');assert.deepEqual(r.skipped,['TEACH Grant']);assert.equal(r.kept,1);assert.deepEqual(r.records,[]);assert.deepEqual(r.warnings,[]);assert.equal(r.queries,0);
+ r=await runChecks({fetchHtml,checks:{teach:{lastAttempt:daysAgo(6.9),lastError:'timed out'}}});
+ assert.equal(calls,0,'a refusal 6.9 days ago also counts as the weekly attempt');assert.equal(r.warnings.length,1,'the refusal stays visible as a warning while skipped');assert.match(r.warnings[0],/^TEACH Grant: studentaid\.gov timed out on Oct 21, 2026\. Listing kept; next check after Oct 28, 2026\.$/);
+ r=await runChecks({fetchHtml,checks:{teach:{lastAttempt:daysAgo(7),lastSuccess:daysAgo(7)}}});
+ assert.equal(calls,1,'7 days later it is due');assert.equal(r.records[0].id,'teach');assert.equal(r.records[0].live,true);assert.deepEqual(r.checks.teach,{lastAttempt:NOW,lastSuccess:NOW});
+ r=await runChecks({fetchHtml});assert.equal(calls,2,'never checked: due');
+ // Non-studentaid pages (NY TAP) are still checked every run.
+ r=await PR.checkOfficialPrograms({programs:[tap],existing:new Map(),checks:{'ny-tap':{lastAttempt:daysAgo(1)}},now:NOW,isBudgetError:B.isBudgetError,fetchHtml});assert.equal(calls,3);assert.equal(r.checks['ny-tap'].lastAttempt,daysAgo(1),'no weekly state for non-weekly pages');
+ // A budget deferral is not an attempt.
+ r=await runChecks({fetchHtml:async()=>{throw new B.FetchBudgetError();}});assert.equal(r.deferred,1);assert.equal(r.checks.teach,undefined);assert.equal(r.kept,1);
+});
+test('studentaid.gov refusing the connection: health stays ok, a warning is shown, the TEACH listing is kept',async()=>{
+ for(const [err,kind] of [[refused('TimeoutError','The operation was aborted due to timeout'),'timed out'],[refused('TypeError','fetch failed','ECONNRESET'),'reset the connection'],[new Error('Network connection lost.'),'reset the connection'],[refused('TypeError','fetch failed','ECONNREFUSED'),'refused the connection'],[new Error('HTTP 403'),'refused the request (HTTP 403)']]){
+  assert.equal(S.refusalKind(err),kind);
+  const r=await runChecks({fetchHtml:async()=>{throw err;}});
+  assert.deepEqual(r.errors,[]);assert.equal(r.warnings.length,1);assert.match(r.warnings[0],new RegExp('^TEACH Grant: studentaid\\.gov '+kind.replace(/[()]/g,'\\$&')+' on Oct 28, 2026\\. Listing kept; next check after Nov 4, 2026\\.$'));
+  assert.equal(r.kept,1,'the stored row is left untouched');assert.deepEqual(r.records,[]);assert.equal(r.checks.teach.lastAttempt,NOW);assert.equal(r.checks.teach.lastError,kind);
+ }
+ assert.equal(S.refusalKind(new Error('HTTP 500')),null);assert.equal(S.refusalKind(new Error('Source requires browser access')),null);
+ // No stored row yet: a link-only record with the studentaid.gov link is stored, and it is publicly listed.
+ const r=await runChecks({existing:new Map(),fetchHtml:async()=>{throw refused('TimeoutError','The operation was aborted due to timeout');}});
+ assert.equal(r.records.length,1);const g=r.records[0];assert.equal(g.id,'teach');assert.equal(g.url,'https://studentaid.gov/understand-aid/types/grants/teach');assert.equal(g.sourceMode,'Link check only');assert.equal(S.isHiddenListing(g,NOW),false);assert.equal(S.isHiddenListing(teachRow,NOW),false);
+ // The source report discovery builds for this case, and the public health it produces.
+ const okRun={checkedAt:NOW,counts:{added:1,updated:0,retired:0,deduped:0},sources:[{name:'Grants.gov',status:'Connected'},{name:'Official student aid programs',status:'Connected',records:2,warnings:r.warnings}]};
+ const h=S.refreshHealth(okRun,{at:NOW,ok:true},Date.parse(NOW));
+ assert.equal(h.status,'ok');assert.deepEqual(h.failedSources,[]);assert.deepEqual(h.warnings,[{source:'Official student aid programs',message:r.warnings[0]}]);
+ const discovery=readFileSync('lib/discovery.ts','utf8');assert.match(discovery,/if\(r\.warnings\.length\)report\.warnings=r\.warnings;/);assert.match(discovery,/if\(r\.errors\.length\)\{report\.status='Partial';report\.error=/);assert.match(discovery,/ICanGetGrants\/1\.2 \(funding source discovery; \+https:\/\/icangetgrants\.com\)/,'honest user agent unchanged');
+ assert.match(readFileSync('lib/access.ts','utf8'),/warnings:s\.warnings/);assert.match(readFileSync('app/dashboard.tsx','utf8'),/Refresh health: \{refresh\.health\.status\}/);
+});
+test('any other failing source still makes health partial, with or without a studentaid.gov warning',async()=>{
+ const warn=['TEACH Grant: studentaid.gov timed out on Oct 28, 2026. Listing kept; next check after Nov 4, 2026.'];
+ const run=sources=>S.refreshHealth({checkedAt:NOW,counts:{},sources},{at:NOW,ok:true},Date.parse(NOW));
+ let h=run([{name:'Official student aid programs',status:'Connected',warnings:warn},{name:'California Grants Portal',status:'Unavailable',error:'HTTP 503'}]);
+ assert.equal(h.status,'partial');assert.deepEqual(h.failedSources,['California Grants Portal']);assert.equal(h.warnings.length,1);
+ h=run([{name:'Poets & Writers',status:'Partial',error:'Page 2: HTTP 500'}]);assert.equal(h.status,'partial');assert.deepEqual(h.warnings,[]);
+ // A studentaid.gov error that is not a refusal (HTTP 500) is a real failure: not an attempt, retried next run.
+ const r=await runChecks({fetchHtml:async()=>{throw new Error('HTTP 500');}});
+ assert.deepEqual(r.warnings,[]);assert.deepEqual(r.errors,['TEACH Grant: HTTP 500']);assert.equal(r.checks.teach,undefined);assert.equal(r.kept,1);
+ h=run([{name:'Official student aid programs',status:'Partial',error:r.errors.join('; ')}]);assert.equal(h.status,'partial');assert.deepEqual(h.failedSources,['Official student aid programs']);
 });

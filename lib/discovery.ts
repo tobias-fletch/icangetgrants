@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { match, newOpportunityItems, seeds, isOpenOpportunity, profileMatches, monitoredProfiles, missingInboxFields, inboxFieldsError } from './grants';
 import type { Grant, Profile, Workspace } from './grants';
 import { clean, countryName, stateName, interests, explicitDate, parseCalifornia, parseScholarships, parsePrivateAwards, parseBusinessGrants } from './source-parsers';
-import { relevantPrograms, checkedProgram } from './programs';
+import { relevantPrograms, checkOfficialPrograms, PROGRAM_CHECKS_JOB } from './programs';
 import { statePlan } from './state-registry';
 import { scanState, leadKey } from './state-discovery';
 import { sweepGrantsGov, grantsGovRecord, detailQueue, applyGrantsGovDetail, fetchWaFundHub, fetchPoetsWriters, retireMissing, crossSourceDedupe, disambiguateTitles, isClosedListing, hasTitleAndLink, visibleListings, contentChanged, refreshHealth, type RefreshAttempt } from './catalog-sweep';
@@ -22,7 +22,7 @@ const codes:Record<string,string>={'Student':'21|99','Individual':'21|99','Freel
 async function text(url:string,budget:FetchBudget){const {response:r,url:finalUrl}=await budgetedFetch(budget,url,{headers:{Accept:'text/html,application/json,text/csv;q=0.9','User-Agent':'ICanGetGrants/1.2 (funding source discovery; +https://icangetgrants.com)'},signal:AbortSignal.timeout(25000)});if(!r.ok)throw new Error('HTTP '+r.status);const body=await r.text();if(/just a moment|verify you are human|access denied|bot manager|human verification|captcha/i.test(body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||body.slice(0,500)))throw new Error('Source requires browser access');if(/\/(?:20[01]\d|202[0-4])\//.test(new URL(finalUrl).pathname))throw new Error('Source redirected to an old archive; browser review required');return body;}
 async function api(path:string,body:unknown,budget:FetchBudget){const {response:r}=await budgetedFetch(budget,'https://api.grants.gov/v1/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(25000)});if(!r.ok)throw new Error('Grants.gov HTTP '+r.status);const j=await r.json() as any;if(j.errorcode!==0||!j.data)throw new Error('Invalid Grants.gov response');return j.data;}
 async function pool<T>(items:T[],limit:number,fn:(item:T)=>Promise<void>){for(let i=0;i<items.length;i+=limit)await Promise.all(items.slice(i,i+limit).map(fn));}
-export type SourceReport={name:string;status:string;records:number;queries:number;error?:string;note?:string;deferred?:number;retired?:number};
+export type SourceReport={name:string;status:string;records:number;queries:number;error?:string;note?:string;deferred?:number;retired?:number;warnings?:string[]};
 // Coverage runs for every monitored profile (all U.S. profiles, plus alert-enabled ones elsewhere); the alerts flag
 // only decides who is notified (newItems matches via profileMatches and upcoming_deadlines).
 // Every run's outcome is recorded in jobs 'last-refresh-attempt', so a run that crashes before saving its results
@@ -94,8 +94,16 @@ async function runDiscovery(input:Profile[]){
   if(!profiles.some(p=>['Small business','Freelancer'].includes(p.type)&&countryName(p.country)==='United States')){report.status='Not needed';return;}
   const html=await text('https://www.uschamber.com/co/run/business-financing/small-business-grants-and-programs',caps.chamber);report.queries=1;const records=parseBusinessGrants(html,now);if(!records.length)throw new Error('No business grant leads parsed.');records.forEach(g=>stage(g));report.records=records.length;report.note='Live business funding guide leads with sponsor links. Recurring programs are not assumed open. Loans and investments are excluded.';
  }),
+ // studentaid.gov pages are checked at most weekly, and a refused check is a health warning (see checkOfficialPrograms).
  source('Official student aid programs',async report=>{
-  const programs=relevantPrograms(profiles);await pool(programs,3,async program=>{try{const html=await text(program.url,caps.studentAid);const g=checkedProgram(program,html,now);stage(g);report.records++;report.queries++;if(!g.live){report.status='Partial';report.note='Some official pages require JavaScript; these show link-check-only status, not live verified rules.';}}catch(e){if(isBudgetError(e)){report.deferred=(report.deferred||0)+1;return;}report.status='Partial';report.error=program.title+': '+(e as Error).message;}});if(!programs.length){report.status='Not needed';report.note='No student profile in a supported program jurisdiction.';}
+  const programs=relevantPrograms(profiles);if(!programs.length){report.status='Not needed';report.note='No student profile in a supported program jurisdiction.';return;}
+  const row=await db.select().from(jobs).where(eq(jobs.id,PROGRAM_CHECKS_JOB));const checks=row[0]?JSON.parse(row[0].data):{};
+  const r=await checkOfficialPrograms({programs,fetchHtml:url=>text(url,caps.studentAid),existing,checks,now,isBudgetError});
+  r.records.forEach(g=>stage(g));report.records=r.records.length+r.kept;report.queries=r.queries;if(r.deferred)report.deferred=r.deferred;
+  await db.insert(jobs).values({id:PROGRAM_CHECKS_JOB,data:JSON.stringify(r.checks)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(r.checks)}});
+  const notes=[r.linkOnly?'Some official pages require JavaScript; these show link-check-only status, not live verified rules.':'',r.skipped.length?`Checked weekly, not due this run: ${r.skipped.join(', ')}.`:'',r.warnings.length?'Pages that refused the automated check keep their stored listing.':''].filter(Boolean);if(notes.length)report.note=notes.join(' ');
+  if(r.warnings.length)report.warnings=r.warnings;
+  if(r.errors.length){report.status='Partial';report.error=r.errors.join('; ');}else if(r.linkOnly)report.status='Partial';
  }),
  source('WomensNet & Awesome Foundation',async report=>{
   const programs=seeds.filter(g=>['amber','awesome'].includes(g.id)&&profiles.some(p=>match(g,p).score>0));await pool(programs,2,async seed=>{try{const html=await text(seed.url,caps.seedPrograms);const content=clean(html);const amount=seed.id==='amber'?Number(content.match(/next\s+\$([\d,]+)\s+Amber Grant/i)?.[1]?.replace(/,/g,''))||null:content.includes('$1,000')?1000:null;const deadline=seed.id==='amber'?explicitDate(content.match(/application cutoff[\s\S]{0,150}/i)?.[0]||''):null;stage({...seed,amount,deadline,checked:now,discovered:now,live:true,status:deadline?'Open':'Verify chapter/cycle',sourceMode:'Official program page',requirements:[...seed.requirements,'Program page checked automatically; confirm full current rules with the provider.']});report.records++;report.queries++;}catch(e){if(isBudgetError(e)){report.deferred=(report.deferred||0)+1;return;}report.status='Partial';report.error=seed.source+': '+(e as Error).message;}});if(!programs.length)report.status='Not needed';

@@ -393,12 +393,14 @@ export const contentChanged = (prev: Grant, next: Grant) => stable(prev) !== sta
 
 // ---------- Health ----------
 export type RefreshCounts = { added: number; updated: number; retired: number; deduped: number };
-export type RefreshHealth = { status: 'ok' | 'partial' | 'failed' | 'stale'; checkedAt: string | null; lastAttemptAt: string | null; failedSources: string[] } & RefreshCounts;
+export type HealthWarning = { source: string; message: string };
+export type RefreshHealth = { status: 'ok' | 'partial' | 'failed' | 'stale'; checkedAt: string | null; lastAttemptAt: string | null; failedSources: string[]; warnings: HealthWarning[] } & RefreshCounts;
 export type RefreshAttempt = { at: string; ok: boolean; error?: string };
 const FAILED = new Set(['Unavailable', 'Partial']);
 /** Public health of the last refresh. failed: the latest run crashed before saving. stale: no successful run in
  *  the last 26 hours. partial: a source failed or returned only part of its data (budget deferrals are not
- *  failures). ok otherwise. Only source names and counts are exposed, never error text. */
+ *  failures). ok otherwise. Only source names and counts are exposed, never raw error text; warnings carry
+ *  fixed wording built by the source (see refusalKind). */
 export function refreshHealth(last: any, attempt: RefreshAttempt | null | undefined, now = Date.now()): RefreshHealth {
   const checkedAt = typeof last?.checkedAt === 'string' ? last.checkedAt : null;
   const counts: RefreshCounts = { added: 0, updated: 0, retired: 0, deduped: 0, ...(last?.counts || {}) };
@@ -409,5 +411,21 @@ export function refreshHealth(last: any, attempt: RefreshAttempt | null | undefi
   if (attempt && !attempt.ok && (!Number.isFinite(lastSuccess) || Date.parse(attempt.at) >= lastSuccess)) status = 'failed';
   else if (!Number.isFinite(lastSuccess) || now - lastSuccess > HEALTH_STALE_AFTER_MS) status = 'stale';
   else status = failedSources.length ? 'partial' : 'ok';
-  return { status, checkedAt, lastAttemptAt, failedSources, added: counts.added, updated: counts.updated, retired: counts.retired, deduped: counts.deduped };
+  // Warnings (for example studentaid.gov refusing an automated check) are shown separately and never set partial.
+  const warnings: HealthWarning[] = ((last?.sources || []) as { name?: unknown; warnings?: unknown }[]).flatMap(s => Array.isArray(s?.warnings) ? s.warnings.map((w: unknown) => ({ source: String(s.name), message: String(w).slice(0, 300) })) : []);
+  return { status, checkedAt, lastAttemptAt, failedSources, warnings, added: counts.added, updated: counts.updated, retired: counts.retired, deduped: counts.deduped };
+}
+
+// ---------- Refused connections ----------
+/** A site refusing, resetting or timing out our honest ICanGetGrants/1.2 request (or answering 403/429), as
+ *  opposed to a broken page or parser. Returns fixed wording for public health, or null for other errors. */
+export function refusalKind(e: unknown): string | null {
+  const err = e as { name?: string; message?: string; code?: string; cause?: { code?: string; message?: string } } | null;
+  const text = [err?.name, err?.message, err?.code, err?.cause?.code, err?.cause?.message].filter(Boolean).join(' ');
+  if (/TimeoutError|AbortError|timed? ?out|aborted due to timeout|ETIMEDOUT|UND_ERR_(?:CONNECT|HEADERS|BODY)_TIMEOUT/i.test(text)) return 'timed out';
+  if (/ECONNRESET|connection (?:was )?reset|stream reset|socket hang up|network connection lost|other side closed|UND_ERR_SOCKET/i.test(text)) return 'reset the connection';
+  if (/ECONNREFUSED|connection refused/i.test(text)) return 'refused the connection';
+  if (/\bHTTP (?:403|429)\b/.test(text)) return 'refused the request (' + text.match(/HTTP (?:403|429)/)![0] + ')';
+  if (/^TypeError\b.*fetch failed/i.test(text)) return 'refused the connection';
+  return null;
 }
