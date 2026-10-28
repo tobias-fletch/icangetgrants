@@ -1,0 +1,175 @@
+{
+ "_source": "Real api.grants.gov/v1/api/search2 responses (oppStatuses forecasted|posted, fundingInstruments G), captured 2026-10-28, trimmed to a few hits each; hitCount set to the trimmed length.",
+ "individual": {
+  "hitCount": 5,
+  "oppHits": [
+   {
+    "id": "349554",
+    "number": "FA2391-23-S-2403",
+    "title": "Pioneering Aerospace Capabilities, Engineering and Research (PACER)",
+    "agencyCode": "DOD-AFRL",
+    "agency": "Air Force -- Research Lab",
+    "openDate": "07/26/2023",
+    "closeDate": "05/10/2043",
+    "oppStatus": "posted",
+    "docType": "synopsis",
+    "cfdaList": [
+     "12.800"
+    ]
+   },
+   {
+    "id": "355417",
+    "number": "RFA-OH-25-002",
+    "title": "Occupational Safety and Health Education and Research Centers (T42)",
+    "agencyCode": "HHS-CDC-HHSCDCERA",
+    "agency": "Centers for Disease Control and Prevention - ERA",
+    "openDate": "10/07/2024",
+    "closeDate": "10/26/2028",
+    "oppStatus": "posted",
+    "docType": "synopsis",
+    "cfdaList": [
+     "93.262"
+    ]
+   },
+   {
+    "id": "275109",
+    "number": "PD-05-1743",
+    "title": "National Facilities",
+    "agencyCode": "NSF",
+    "agency": "U.S. National Science Foundation",
+    "openDate": "03/13/2015",
+    "closeDate": "",
+    "oppStatus": "posted",
+    "docType": "synopsis",
+    "cfdaList": [
+     "47.049"
+    ]
+   },
+   {
+    "id": "358676",
+    "number": "PDS-CAIRO-001-FY25",
+    "title": "U.S. Embassy Cairo Public Diplomacy Section  Annual Program Statement",
+    "agencyCode": "DOS-EGY",
+    "agency": "U.S. Mission to Egypt",
+    "openDate": "04/23/2025",
+    "closeDate": "",
+    "oppStatus": "forecasted",
+    "docType": "forecast",
+    "cfdaList": [
+     "19.040"
+    ]
+   },
+   {
+    "id": "359120",
+    "number": "PAS-TUNIS-FY2025",
+    "title": "Annual Program Statement (APS) for Fiscal Year 2025",
+    "agencyCode": "DOS-TUN",
+    "agency": "U.S. Mission to Tunisia",
+    "openDate": "06/02/2025",
+    "closeDate": "",
+    "oppStatus": "forecasted",
+    "docType": "forecast",
+    "cfdaList": [
+     "19.040"
+    ]
+   }
+  ]
+ },
+ "business": {
+  "hitCount": 3,
+  "oppHits": [
+   {
+    "id": "349554",
+    "number": "FA2391-23-S-2403",
+    "title": "Pioneering Aerospace Capabilities, Engineering and Research (PACER)",
+    "agencyCode": "DOD-AFRL",
+    "agency": "Air Force -- Research Lab",
+    "openDate": "07/26/2023",
+    "closeDate": "05/10/2043",
+    "oppStatus": "posted",
+    "docType": "synopsis",
+    "cfdaList": [
+     "12.800"
+    ]
+   },
+   {
+    "id": "357305",
+    "number": "PAR-25-274",
+    "title": "Feasibility Clinical Trials of Mind and Body Interventions for NCCIH High Priority Research Topics (R34 Clinical Trial Required)",
+    "agencyCode": "HHS-NIH11",
+    "agency": "National Institutes of Health",
+    "openDate": "11/21/2024",
+    "closeDate": "11/17/2026",
+    "oppStatus": "posted",
+    "docType": "synopsis",
+    "cfdaList": [
+     "93.213"
+    ]
+   },
+   {
+    "id": "357303",
+    "number": "PAR-25-268",
+    "title": "Investigator Initiated Clinical Trials of Complementary and Integrative Interventions Delivered Remotely or via mHealth (R01 Clinical Trial Required)",
+    "agencyCode": "HHS-NIH11",
+    "agency": "National Institutes of Health",
+    "openDate": "11/21/2024",
+    "closeDate": "11/17/2026",
+    "oppStatus": "posted",
+    "docType": "synopsis",
+    "cfdaList": [
+     "93.213"
+    ]
+   }
+  ]
+ },
+ "nonprofit": {
+  "hitCount": 2,
+  "oppHits": [
+   {
+    "id": "355824",
+    "number": "MP-CPI-25-001",
+    "title": "Making America Healthy Again by Addressing Dementia Disparities",
+    "agencyCode": "HHS-OPHS",
+    "agency": "Office of the Assistant Secretary for Health",
+    "openDate": "08/01/2024",
+    "closeDate": "",
+    "oppStatus": "forecasted",
+    "docType": "forecast",
+    "cfdaList": [
+     "93.137"
+    ]
+   },
+   {
+    "id": "355829",
+    "number": "MP-CPI-25-003",
+    "title": "Coordinating Center for Language Access Services",
+    "agencyCode": "HHS-OPHS",
+    "agency": "Office of the Assistant Secretary for Health",
+    "openDate": "08/01/2024",
+    "closeDate": "",
+    "oppStatus": "forecasted",
+    "docType": "forecast",
+    "cfdaList": [
+     "93.137"
+    ]
+   }
+  ]
+ },
+ "washingtonCrossListed": {
+  "_note": "search2 hit for the Grants.gov opportunity that Washington FundHub record 1695 cross-lists (external_reference_id grantsgov_361169).",
+  "hit": {
+   "id": "361169",
+   "number": "USDA-NIFA-AFRI-011596",
+   "title": "Agriculture and Food Research Initiative Competitive Grants Program Education and Workforce Development",
+   "agencyCode": "USDA-NIFA",
+   "agency": "National Institute of Food and Agriculture",
+   "openDate": "01/20/2026",
+   "closeDate": "12/31/2026",
+   "oppStatus": "posted",
+   "docType": "synopsis",
+   "cfdaList": [
+    "10.310"
+   ]
+  }
+ }
+}

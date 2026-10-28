@@ -62,7 +62,7 @@ test('CareerOneStop links drop the search keyword and residency filter but keep 
 
 test('workspace API and home page use the visitor projections',()=>{
  const route=readFileSync('app/api/workspace/route.ts','utf8');const get=route.slice(route.indexOf('export async function GET'),route.indexOf('export async function PUT'));
- assert.match(get,/loadCatalog\(\{owner\}\)/);assert.match(get,/visibleStateCoverage\(reports,state\.profiles,owner\)/);assert.match(get,/const reports=u\?/);
+ assert.match(get,/loadCatalog\(\{owner,keepIds:u\?state\.saved\.map\(s=>s\.grantId\):\[\]\}\)/);assert.match(get,/visibleStateCoverage\(reports,state\.profiles,owner\)/);assert.match(get,/const reports=u\?/);
  const catalog=readFileSync('lib/catalog.ts','utf8');assert.match(catalog,/owner \? publicRefresh\(last\) : visitorRefresh\(last\)/);assert.match(catalog,/visitorGrants\(await allGrants\(\)\)/);
  const page=readFileSync('app/page.tsx','utf8');assert.match(page,/loadCatalog\(\)/);
 });
