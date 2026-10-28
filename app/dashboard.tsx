@@ -39,7 +39,7 @@ export default function Dashboard({initialGrants=seeds,initialRefresh=null,catal
  async function scan(mode?:unknown){if(!authenticated){if(!state.profiles.length)setEditing({...initial,alerts:false});else {setView('discover');notify('Matches updated from the current catalog. Sign in to save profiles and enable ongoing monitoring.');}return;}if(!state.profiles.length&&mode!=='saved-profile'){setEditing({...initial});return;}setBusy(true);try{const r=await fetch('/api/discover',{method:'POST'});const j=await json(r);if(!r.ok)throw new Error(j.error||'Discovery failed');await load();notify(j.errors?.length?`Scan incomplete: ${j.checked} records checked; ${j.errors[0]}`:j.queries?`${j.newMatchedOpportunities ?? j.newGrants} new potential matches found. ${j.checked} records checked across ${j.sources?.filter((s:any)=>s.records>0).length||0} sources.`:'No applicable sources ran. Enable profile monitoring and check source coverage.');}catch(e){notify((e as Error).message);}finally{setBusy(false);}}
  useEffect(()=>{if(!authenticated||mutation||busy||editing||view==='tracker')return;const controller=new AbortController();let lastSync=0;const sync=async()=>{if(document.visibilityState!=='visible'||Date.now()-lastSync<30000)return;lastSync=Date.now();try{const r=await fetch('/api/workspace',{signal:controller.signal});if(!r.ok)return;const j:any=await r.json();if(!controller.signal.aborted&&j.authenticated)applyWorkspace(j);}catch{}};const timer=setInterval(sync,60000);window.addEventListener('focus',sync);document.addEventListener('visibilitychange',sync);return()=>{controller.abort();clearInterval(timer);window.removeEventListener('focus',sync);document.removeEventListener('visibilitychange',sync);};},[authenticated,mutation,busy,editing,view]);
  const active=state.profiles.find(p=>p.id===selected);
- const ranked=useMemo(()=>{const now=new Date(nowIso);const terms=queryTerms(query);return grants.filter(g=>isOpenGrant(g,now)).map(g=>{
+ const ranked=useMemo(()=>{const now=new Date(nowIso);const terms=queryTerms(query);return grants.filter(g=>isOpenGrant(g,now)&&!g.searchHidden).map(g=>{
   const profiles=active?[active]:state.profiles;
   const fits=profiles.map(p=>({p,...match(g,p)})).sort((a,b)=>b.score-a.score);
   return {g,fit:fits[0],profiles:fits.filter(f=>f.score>0),relevance:terms.length?relevanceScore(g,query):0};
@@ -50,12 +50,12 @@ export default function Dashboard({initialGrants=seeds,initialRefresh=null,catal
   return (b.fit?.score||0)-(a.fit?.score||0);
  });},[grants,state.profiles,active,query,kind,min,sort,nowIso,cityFilter,countyFilter,stateFilter]);
  const places=useMemo(()=>placeOptions(grants),[grants]);
- const stateOptions=useMemo(()=>searchStates(grants.filter(g=>isOpenGrant(g,new Date(nowIso)))),[grants,nowIso]);
+ const stateOptions=useMemo(()=>searchStates(grants.filter(g=>isOpenGrant(g,new Date(nowIso))&&!g.searchHidden)),[grants,nowIso]);
  // Home search: filters the Opportunities results below and keeps /?q=…&state=… in the address bar so a search can be shared.
  function submitSearch(e:FormEvent<HTMLFormElement>){e.preventDefault();setView('discover');try{window.history.replaceState(null,'',homeSearchHref(query,stateFilter));}catch{}requestAnimationFrame(()=>document.getElementById('opportunities')?.scrollIntoView({behavior:'smooth',block:'start'}));}
  const savedIds=new Set(state.saved.filter(s=>selected==='all'||s.profileId===selected).map(s=>s.grantId));
  const listed=view==='saved'?ranked.filter(x=>savedIds.has(x.g.id)):ranked;
- const inbox=useMemo(()=>authenticated?inboxMatches(grants,state.profiles,state.seen||''):[],[authenticated,grants,state.profiles,state.seen]);
+ const inbox=useMemo(()=>authenticated?inboxMatches(grants.filter(g=>!g.searchHidden),state.profiles,state.seen||''):[],[authenticated,grants,state.profiles,state.seen]);
  const fresh=inbox.length;
  const previousUnread=useRef<number|null>(null);
  useEffect(()=>{if(!authenticated){previousUnread.current=null;return;}if(previousUnread.current!==null&&fresh>previousUnread.current)notify((fresh-previousUnread.current)+' new funding match'+(fresh-previousUnread.current===1?'':'es')+' in Updates.');previousUnread.current=fresh;},[fresh,authenticated]);

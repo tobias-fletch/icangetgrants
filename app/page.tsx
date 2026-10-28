@@ -20,7 +20,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
     Promise.resolve(searchParams).then(p => p ?? {}).catch(() => ({})),
   ]);
   const now = new Date();
-  const searchStateOptions = searchStates(catalog.grants.filter(g => isOpenGrant(g, now)));
+  const searchStateOptions = searchStates(catalog.grants.filter(g => isOpenGrant(g, now) && !g.searchHidden));
   const search = parseHomeSearch(params, searchStateOptions);
   return (
     <Dashboard
