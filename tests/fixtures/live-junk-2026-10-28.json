@@ -1,0 +1,337 @@
+{
+ "fetchedAt": "2026-10-28T17:00:00Z",
+ "note": "Public /api/workspace rows from live v21 (88810a9) on Oct 28, 2026: the 6 junk listings and the 3 listings they duplicate.",
+ "grants": [
+  {
+   "id": "state-la-aid-f451965a",
+   "title": "GO Grant",
+   "funder": "Louisiana student aid source",
+   "description": "Potential Louisiana student funding program found on an official agency or designated partner page. Confirm the current cycle, applicant eligibility, and location or institution requirements with the provider.",
+   "types": [
+    "Student"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "states": [
+    "Louisiana"
+   ],
+   "tags": [
+    "education"
+   ],
+   "amount": null,
+   "deadline": null,
+   "deadlineLabel": "Current cycle requires provider confirmation",
+   "url": "https://mylosfa.la.gov/paying-for-college/scholarships-grants/go-grant/",
+   "source": "Louisiana \u00b7 Student aid",
+   "sourceUrl": "https://mylosfa.la.gov/paying-for-college/scholarships-grants/",
+   "requirements": [
+    "Source-listed program lead; applicant eligibility and current availability are unverified.",
+    "Confirm residency, business ownership or school enrollment, permitted expenses, and any matching funds.",
+    "State programs can have city/county, institution, industry, income, or other restrictions."
+   ],
+   "checked": "2026-10-28T12:57:26.889Z",
+   "discovered": "2026-10-18T22:08:32.432Z",
+   "kind": "Student aid",
+   "live": true,
+   "status": "Verify eligibility/cycle",
+   "sourceMode": "State-source program lead",
+   "eligibilityVerified": false
+  },
+  {
+   "id": "state-la-aid-bf175ec8",
+   "title": "submit a scholarship addition for approval.",
+   "funder": "Louisiana student aid source",
+   "description": "Potential Louisiana student funding program found on an official agency or designated partner page. Confirm the current cycle, applicant eligibility, and location or institution requirements with the provider.",
+   "types": [
+    "Student"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "states": [
+    "Louisiana"
+   ],
+   "tags": [
+    "education"
+   ],
+   "amount": null,
+   "deadline": null,
+   "deadlineLabel": "Current cycle requires provider confirmation",
+   "url": "https://mylosfa.la.gov/paying-for-college/scholarships-grants/other-scholarships/",
+   "source": "Louisiana \u00b7 Student aid",
+   "sourceUrl": "https://mylosfa.la.gov/paying-for-college/scholarships-grants/other-scholarships/",
+   "requirements": [
+    "Source-listed program lead; applicant eligibility and current availability are unverified.",
+    "Confirm residency, business ownership or school enrollment, permitted expenses, and any matching funds.",
+    "State programs can have city/county, institution, industry, income, or other restrictions."
+   ],
+   "checked": "2026-10-28T12:57:26.889Z",
+   "discovered": "2026-10-18T22:08:32.432Z",
+   "kind": "Scholarship",
+   "live": true,
+   "status": "Verify eligibility/cycle",
+   "sourceMode": "State-source program lead",
+   "eligibilityVerified": false
+  },
+  {
+   "id": "state-la-aid-6d3d1e8",
+   "title": "Submit a Scholarship",
+   "funder": "Louisiana student aid source",
+   "description": "Potential Louisiana student funding program found on an official agency or designated partner page. Themes: education. Confirm the current cycle, applicant eligibility, and location or institution requirements with the provider.",
+   "types": [
+    "Student"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "states": [
+    "Louisiana"
+   ],
+   "tags": [
+    "education",
+    "education"
+   ],
+   "amount": null,
+   "deadline": null,
+   "deadlineLabel": "Current cycle requires provider confirmation",
+   "url": "https://mylosfa.la.gov/paying-for-college/scholarships-grants/other-scholarships/",
+   "source": "Louisiana \u00b7 Student aid",
+   "sourceUrl": "https://mylosfa.la.gov/paying-for-college/scholarships-grants/other-scholarships/",
+   "requirements": [
+    "Source-listed program lead; applicant eligibility and current availability are unverified.",
+    "Confirm residency, business ownership or school enrollment, permitted expenses, and any matching funds.",
+    "State programs can have city/county, institution, industry, income, or other restrictions."
+   ],
+   "checked": "2026-10-28T12:57:26.889Z",
+   "discovered": "2026-10-18T22:08:32.432Z",
+   "kind": "Scholarship",
+   "live": true,
+   "status": "Verify eligibility/cycle",
+   "sourceMode": "State-source program lead",
+   "eligibilityVerified": false
+  },
+  {
+   "id": "state-la-aid-94be99d7",
+   "title": "Louisiana GO Grant",
+   "funder": "Louisiana student aid source",
+   "description": "Potential Louisiana student funding program found on an official agency or designated partner page. Confirm the current cycle, applicant eligibility, and location or institution requirements with the provider.",
+   "types": [
+    "Student"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "states": [
+    "Louisiana"
+   ],
+   "tags": [
+    "education"
+   ],
+   "amount": 3000,
+   "deadline": null,
+   "deadlineLabel": "Current cycle requires provider confirmation",
+   "url": "https://mylosfa.la.gov/paying-for-college/scholarships-grants/go-grant/",
+   "source": "Louisiana \u00b7 Student aid",
+   "sourceUrl": "https://mylosfa.la.gov/paying-for-college/scholarships-grants/go-grant/",
+   "requirements": [
+    "Research evidence: LOSFA identifies this as need-based aid for eligible Louisiana residents enrolled at least half-time in an eligible Louisiana institution who file FAFSA, receive a Federal Pell Grant, and have remaining financial need. The official page lists current-year awards from $300 to $3,000, determined by the institution.",
+    "Source-listed program lead; applicant eligibility and current availability are unverified.",
+    "Confirm residency, business ownership or school enrollment, permitted expenses, and any matching funds.",
+    "State programs can have city/county, institution, industry, income, or other restrictions."
+   ],
+   "checked": "2026-10-19T13:55:24.705Z",
+   "discovered": "2026-10-19T13:55:24.705Z",
+   "kind": "Student aid",
+   "live": false,
+   "status": "Researched lead \u00b7 verify cycle",
+   "sourceMode": "Primary-source research",
+   "eligibilityVerified": false
+  },
+  {
+   "checked": "2026-10-28T16:56:44.123Z",
+   "discovered": "2026-10-28T16:17:37.188Z",
+   "live": true,
+   "amount": null,
+   "deadline": null,
+   "states": [
+    "California"
+   ],
+   "requirements": [
+    "Applicant category is preliminary; confirm the full notice.",
+    "Project geography: Projects must be within the Santa Monica Mountains Conservancy Zone.",
+    "Matching funds: Not Required",
+    "Funding method: Reimbursement(s)"
+   ],
+   "id": "ca-117489",
+   "title": "The California Drought, Water, Parks, Climate, Coastal Protection and Outdoor Access for All Act of 2018 (Proposition 68) SMMC Grant Program \u2013 (Prop 68 River San Fernando Valley \u2013 Severely Disadvantaged Community)",
+   "funder": "Santa Monica Mountains Conservancy",
+   "description": "Projects which facilitate the protection and restoration of wildlife, habitat and historical/archaeological resources, including habitat restoration projects in urban rural areas.",
+   "types": [
+    "Nonprofit"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "tags": [
+    "Environment & Water"
+   ],
+   "deadlineLabel": "Ongoing",
+   "url": "https://smmc.ca.gov/grants-redo/",
+   "source": "California Grants Portal",
+   "sourceUrl": "https://data.ca.gov/dataset/california-grants-portal",
+   "kind": "State grant",
+   "status": "Open",
+   "sourceUpdated": "2026-08-18 20:36:02",
+   "lastSeen": "2026-10-28T16:56:44.123Z"
+  },
+  {
+   "checked": "2026-10-28T16:56:44.123Z",
+   "discovered": "2026-10-28T16:17:37.188Z",
+   "live": true,
+   "amount": null,
+   "deadline": null,
+   "states": [
+    "California"
+   ],
+   "requirements": [
+    "Applicant category is preliminary; confirm the full notice.",
+    "Project geography: Projects must be within the Santa Monica Mountains Conservancy Zone.",
+    "Matching funds: Not Required",
+    "Funding method: Reimbursement(s)"
+   ],
+   "id": "ca-117480",
+   "title": "The California Drought, Water, Parks, Climate, Coastal Protection and Outdoor Access for All Act of 2018 (Proposition 68) SMMC Grant Program \u2013 Prop 68 River San Fernando Valley",
+   "funder": "Santa Monica Mountains Conservancy",
+   "description": "Projects which facilitate the protection and restoration of wildlife, habitat and historical/archaeological resources, including habitat restoration projects in urban rural areas.",
+   "types": [
+    "Nonprofit"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "tags": [
+    "Environment & Water"
+   ],
+   "deadlineLabel": "Ongoing",
+   "url": "https://smmc.ca.gov/grants-redo/",
+   "source": "California Grants Portal",
+   "sourceUrl": "https://data.ca.gov/dataset/california-grants-portal",
+   "kind": "State grant",
+   "status": "Open",
+   "sourceUpdated": "2026-08-27 21:01:22",
+   "lastSeen": "2026-10-28T16:56:44.123Z"
+  },
+  {
+   "checked": "2026-10-28T16:56:44.123Z",
+   "discovered": "2026-10-28T16:17:37.188Z",
+   "live": true,
+   "amount": null,
+   "deadline": null,
+   "states": [
+    "California"
+   ],
+   "requirements": [
+    "Applicant category is preliminary; confirm the full notice.",
+    "Project geography: Projects must be within the Santa Monica Mountains Conservancy Zone.",
+    "Matching funds: Not Required",
+    "Funding method: Reimbursement(s)"
+   ],
+   "id": "ca-117456",
+   "title": "The California Drought, Water, Parks, Climate, Coastal Protection and Outdoor Access for All Act of 2018 (Proposition 68) SMMC Grant Program \u2013 Prop 68 River",
+   "funder": "Santa Monica Mountains Conservancy",
+   "description": "Projects which facilitate the protection and restoration of wildlife, habitat and historical/archaeological resources, including habitat restoration projects in urban rural areas.",
+   "types": [
+    "Nonprofit"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "tags": [
+    "Environment & Water"
+   ],
+   "deadlineLabel": "Ongoing",
+   "url": "https://smmc.ca.gov/grants-redo/",
+   "source": "California Grants Portal",
+   "sourceUrl": "https://data.ca.gov/dataset/california-grants-portal",
+   "kind": "State grant",
+   "status": "Open",
+   "sourceUpdated": "2026-08-18 20:35:10",
+   "lastSeen": "2026-10-28T16:56:44.123Z"
+  },
+  {
+   "checked": "2026-10-28T16:56:44.123Z",
+   "discovered": "2026-10-28T16:17:37.188Z",
+   "live": true,
+   "amount": null,
+   "deadline": null,
+   "states": [
+    "California"
+   ],
+   "requirements": [
+    "Applicant category is preliminary; confirm the full notice.",
+    "Project geography: Projects must benefit the Klamath-Trinity Watershed in California.",
+    "Matching funds: Not Required",
+    "Funding method: Reimbursement(s)"
+   ],
+   "id": "ca-66273",
+   "title": "Proposition 68 Rivers and Streams Grant Program \u2013 Klamath-Trinity Watershed",
+   "funder": "Department of Fish and Wildlife",
+   "description": "To restore and protect rivers and streams in support of fisheries and wildlife.",
+   "types": [
+    "Nonprofit"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "tags": [
+    "Environment & Water"
+   ],
+   "deadlineLabel": "Ongoing",
+   "url": "https://nrm.dfg.ca.gov/FileHandler.ashx?DocumentID=161969&inline",
+   "source": "California Grants Portal",
+   "sourceUrl": "https://data.ca.gov/dataset/california-grants-portal",
+   "kind": "State grant",
+   "status": "Open",
+   "sourceUpdated": "2026-08-25 20:23:15",
+   "lastSeen": "2026-10-28T16:56:44.123Z"
+  },
+  {
+   "checked": "2026-10-28T16:56:44.123Z",
+   "discovered": "2026-10-28T16:17:37.188Z",
+   "live": true,
+   "amount": null,
+   "deadline": null,
+   "states": [
+    "California"
+   ],
+   "requirements": [
+    "Applicant category is preliminary; confirm the full notice.",
+    "Project geography: State of California",
+    "Matching funds: Not Required",
+    "Funding method: Reimbursement(s)"
+   ],
+   "id": "ca-66240",
+   "title": "Proposition 68 Rivers and Streams Grant Program",
+   "funder": "Department of Fish and Wildlife",
+   "description": "To restore and protect rivers and streams in support of fisheries and wildlife.",
+   "types": [
+    "Nonprofit"
+   ],
+   "countries": [
+    "United States"
+   ],
+   "tags": [
+    "Environment & Water"
+   ],
+   "deadlineLabel": "Ongoing",
+   "url": "https://nrm.dfg.ca.gov/FileHandler.ashx?DocumentID=161969&inline",
+   "source": "California Grants Portal",
+   "sourceUrl": "https://data.ca.gov/dataset/california-grants-portal",
+   "kind": "State grant",
+   "status": "Open",
+   "sourceUpdated": "2026-08-25 20:14:52",
+   "lastSeen": "2026-10-28T16:56:44.123Z"
+  }
+ ]
+}

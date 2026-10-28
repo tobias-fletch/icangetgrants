@@ -7,6 +7,7 @@ import { seeds, type Grant } from './grants';
 import { withDeadlineStatus } from './listing';
 import { refreshHealth, isHiddenListing, isClosedListing, hasTitleAndLink, type RefreshHealth } from './catalog-sweep';
 import { visitorGrants, visitorRefresh } from './workspace-privacy';
+import { publicCatalog } from './seo-index';
 
 export const CATALOG_UNAVAILABLE = 'The live funding catalog could not be loaded. These are built-in listings only, not the full catalog.';
 export const CATALOG_EMPTY = 'The live funding catalog has no saved listings yet. Showing built-in listings only.';
@@ -45,7 +46,7 @@ export async function loadCatalog({ owner = false, keepIds = [] }: { owner?: boo
     // account itself saved is still sent (marked closed) so its tracker entry keeps its details.
     const now = new Date(), keep = new Set(keepIds);
     const visible = (g: Grant) => !isHiddenListing(g, now.getTime()) || (keep.has(g.id) && isClosedListing(g, now.getTime()) && !g.duplicateOf && hasTitleAndLink(g));
-    return { grants: visitorGrants(await allGrants()).map(g => withDeadlineStatus(g, now)).filter(visible), refresh, error: null, source: 'd1' };
+    return { grants: publicCatalog(visitorGrants(await allGrants()).map(g => withDeadlineStatus(g, now)).filter(visible), keep, now), refresh, error: null, source: 'd1' };
   } catch {
     return { grants: seeds, refresh: null, error: CATALOG_UNAVAILABLE, source: 'builtin' };
   }

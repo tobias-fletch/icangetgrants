@@ -82,13 +82,33 @@ export function compactListing(g: Grant): SeoListing {
   return l;
 }
 
+/** Listings that are open now, not hidden, with an http(s) link: the pool both /grants and the public catalog start from. */
+export function publicCandidates<T extends Grant>(grants: T[], now = new Date()): T[] {
+  return grants.filter(g => g && g.id && httpUrl(g.url) && isOpenGrant(g, now) && !isHiddenListing(g, now.getTime()));
+}
+/** Junk filter (lib/seo-exclude.ts): link labels and same-page duplicates. One rule set for /grants, the API and
+ *  home search (lib/catalog.ts), so every count matches. Idempotent: running it on its own output drops nothing. */
+export function publicJunkIds(grants: Grant[], now = new Date()): Set<string> {
+  return new Set(seoExclusions(publicCandidates(grants, now)).map(e => e.id));
+}
+
+// The same junk filter as /grants (link labels such as "Submit a Scholarship", and a second listing for the same
+// page as a more specific one), so the API, home search, dashboard counts and /grants all count one list.
+// D1 rows are never touched. A junk row the account itself saved is still sent, marked searchHidden, so its
+// tracker entry keeps its details while search and counts leave it out.
+export function publicCatalog(grants: Grant[], keep: Set<string> = new Set(), now = new Date()): Grant[] {
+  const junk = publicJunkIds(grants, now);
+  if (!junk.size) return grants;
+  return grants.flatMap(g => !junk.has(g.id) ? [g] : keep.has(g.id) ? [{ ...g, searchHidden: true }] : []);
+}
+
 /** Builds the stored row. Only listings open at build time (and with an http(s) link) are kept. */
 export function buildSeoIndex(grants: Grant[], refresh: { checkedAt?: string } | null, now = new Date()): SeoIndex {
   const listings: Record<string, SeoListing> = {};
   // Duplicates, closed rows and long-unseen scraped listings are hidden here exactly as in the public catalog.
-  const open = grants.filter(g => g && g.id && httpUrl(g.url) && isOpenGrant(g, now) && !isHiddenListing(g, now.getTime()));
-  // Junk filter (lib/seo-exclude.ts): link labels and same-page duplicates stay in the catalog but not on these pages.
-  const excluded = new Set(seoExclusions(open).map(e => e.id));
+  const open = publicCandidates(grants, now);
+  // Junk rows stay in the D1 catalog (never deleted) but are left off these pages and the public catalog alike.
+  const excluded = publicJunkIds(open, now);
   for (const g of open) if (!excluded.has(g.id)) listings[g.id] = compactListing(g);
   const index: SeoIndex = {
     version: SEO_INDEX_VERSION, builtAt: now.toISOString(),
