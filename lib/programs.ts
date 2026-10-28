@@ -23,9 +23,10 @@ export function checkedProgram(program:Program,html:string,now:string):Grant {
 // Federal Student Aid pages (Pell, FSEOG, TEACH Grant) change rarely, and studentaid.gov refuses, resets or times
 // out automated requests from our honest ICanGetGrants/1.2 user agent. We do not disguise the user agent. Instead:
 // - Weekly cadence: a studentaid.gov page is skipped while its last ATTEMPT is under 7 days old. Attempts are
-//   successful checks and refused checks (refused, reset, timed out, HTTP 403/429), so a site that refuses us is
-//   asked at most once a week. Any other error (HTTP 500, a changed page) is not recorded as an attempt, so it is
-//   retried on the next run and keeps the source failed until fixed.
+//   successful checks and refused checks (refused, reset, timed out, HTTP 403/429, or any HTTP 5xx such as
+//   Cloudflare's 520), so a site that refuses us is asked at most once a week. Any other error (HTTP 404, a page
+//   that needs a browser, a changed page) is not recorded as an attempt, so it is retried on the next run and keeps
+//   the source failed until fixed.
 // - A refused check is a health warning, not a failure: overall health stays ok and the warning is listed apart.
 // - The listing is never retired or hidden by a failed or skipped check: the stored row (with its studentaid.gov
 //   link) is left as it is, or a link-only record is stored when there is no row yet.

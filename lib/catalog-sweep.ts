@@ -417,8 +417,8 @@ export function refreshHealth(last: any, attempt: RefreshAttempt | null | undefi
 }
 
 // ---------- Refused connections ----------
-/** A site refusing, resetting or timing out our honest ICanGetGrants/1.2 request (or answering 403/429), as
- *  opposed to a broken page or parser. Returns fixed wording for public health, or null for other errors. */
+/** A site refusing, resetting or timing out our honest ICanGetGrants/1.2 request (or answering 403/429,
+ *  or with any 5xx such as Cloudflare's 520), as opposed to a missing (404) or broken page or parser. Returns fixed wording for public health, or null for other errors. */
 export function refusalKind(e: unknown): string | null {
   const err = e as { name?: string; message?: string; code?: string; cause?: { code?: string; message?: string } } | null;
   const text = [err?.name, err?.message, err?.code, err?.cause?.code, err?.cause?.message].filter(Boolean).join(' ');
@@ -426,6 +426,9 @@ export function refusalKind(e: unknown): string | null {
   if (/ECONNRESET|connection (?:was )?reset|stream reset|socket hang up|network connection lost|other side closed|UND_ERR_SOCKET/i.test(text)) return 'reset the connection';
   if (/ECONNREFUSED|connection refused/i.test(text)) return 'refused the connection';
   if (/\bHTTP (?:403|429)\b/.test(text)) return 'refused the request (' + text.match(/HTTP (?:403|429)/)![0] + ')';
+  // 5xx (including Cloudflare's 520): the site's server or its front door failed us. Only the weekly studentaid.gov
+  // check calls refusalKind, so this does not soften 5xx errors from any other source.
+  if (/\bHTTP 5\d\d\b/.test(text)) return 'returned a server error (' + text.match(/HTTP 5\d\d/)![0] + ')';
   if (/^TypeError\b.*fetch failed/i.test(text)) return 'refused the connection';
   return null;
 }
