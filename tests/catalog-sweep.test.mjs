@@ -9,10 +9,11 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const out=resolve('.sites-runtime/tests-catalog-sweep');mkdirSync(out,{recursive:true});
-for(const name of ['source-parsers','grants','state-registry','fetch-budget','state-discovery','catalog-sweep']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
+for(const name of ['source-parsers','grants','listing','state-registry','fetch-budget','state-discovery','catalog-sweep']){const source=readFileSync(`lib/${name}.ts`,'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '(\.\/[^']+)'/g,"from '$1.mjs'");writeFileSync(`${out}/${name}.mjs`,js);}
 const S=await import(pathToFileURL(`${out}/catalog-sweep.mjs`).href);
 const B=await import(pathToFileURL(`${out}/fetch-budget.mjs`).href);
 const P=await import(pathToFileURL(`${out}/source-parsers.mjs`).href);
+const L=await import(pathToFileURL(`${out}/listing.mjs`).href);
 const fx=name=>readFileSync(`tests/fixtures/catalog-sweep/${name}`,'utf8');
 const search=JSON.parse(fx('grants-gov-search.json')),detailForecast=JSON.parse(fx('grants-gov-detail-forecast.json')),detailPosted=JSON.parse(fx('grants-gov-detail-posted.json'));
 const wa=JSON.parse(fx('wa-fundhub.json')).records,pw0=fx('pw-page0.html'),pw1=fx('pw-page1.html'),caCsv=fx('california-grants-portal.csv');
@@ -60,10 +61,11 @@ test('Grants.gov detail: forecasts get Opens soon dates, posted notices get amou
  const old=S.applyGrantsGovDetail(S.grantsGovRecord(r.hits.get('358676'),undefined,NOW),{forecast:{...detailPosted.forecast}},NOW);
  assert.equal(old.opensOn,null);assert.equal(old.deadlineLabel,'Forecast: application dates not yet published');
  const future=S.applyGrantsGovDetail(S.grantsGovRecord(r.hits.get('358676'),undefined,'2024-06-01T12:00:00Z'),{forecast:{...detailPosted.forecast}},'2024-06-01T12:00:00Z');
- assert.equal(future.opensOn,'2024-08-27');assert.equal(future.deadlineLabel,'Forecast: estimated application deadline 2024-11-21');
+ assert.equal(future.opensOn,'2024-08-27');assert.equal(future.deadlineLabel,'Forecast: estimated application deadline Nov 21, 2024');
 });
 
 test('Grants.gov detail queue: unenriched posted first, then forecasts, then 14-day re-checks, capped',async()=>{
+ // Half of the slots go to forecasts so their estimated dates (expected / stale) are actually checked.
  const r=await S.sweepGrantsGov(okSearch);const records=[...r.hits.values()].map(h=>S.grantsGovRecord(h,undefined,NOW));
  const q=S.detailQueue(records,NOW,4);assert.equal(q.length,4);assert.ok(q.every(g=>g.detailPending));
  const firstForecast=q.findIndex(g=>g.status==='Opens soon');assert.ok(firstForecast===-1||q.slice(firstForecast).every(g=>g.status==='Opens soon'));
@@ -238,4 +240,78 @@ test('health is public in /api/workspace and the refresh status, and run failure
 test('Opens soon is labeled in the UI',()=>{
  const ui=readFileSync('app/dashboard.tsx','utf8');assert.equal((ui.match(/status==='Opens soon'&&<span className="opens-soon-badge">/g)||[]).length,2);
  assert.match(readFileSync('app/globals.css','utf8'),/\.opens-soon-badge\{/);
+});
+
+// ---------- 2026-10-28 fixes ----------
+const M=list=>new Map(list.map(g=>[g.id,g]));
+const gov=(id,o={})=>({id:'gov-'+id,title:'Sample Program',funder:'Department of Example',url:'https://www.grants.gov/search-results-detail/'+id,kind:'Federal grant',status:'Open',live:true,deadline:'2026-12-15',opportunityNumber:'EX-'+id,source:'Grants.gov',lastSeen:NOW,...o});
+
+test('fix 1: same normalized title and deadline across sources is a duplicate; Grants.gov is kept',()=>{
+ const g=gov('363833',{title:'FY27 Rural Business Development Grants',deadline:'2027-02-27',opportunityNumber:'RD-RBDG-27'});
+ const w={id:'wa-2204',title:'FY27 Rural Business Development Grants.',funder:'USDA Rural Development',url:'https://fundhub.wa.gov/grant/2204',deadline:'2027-02-27',status:'Open',live:true,source:'Washington FundHub',lastSeen:NOW};
+ const r=S.crossSourceDedupe(M([w]),M([g]));assert.deepEqual(r.dropNew,['wa-2204']);
+ // A different deadline, a short title, or two listings from the same source do not pair up.
+ assert.deepEqual(S.crossSourceDedupe(M([{...w,deadline:'2027-03-01'}]),M([g])).dropNew,[]);
+ assert.deepEqual(S.crossSourceDedupe(M([{...w,title:'Small Grants'}]),M([{...g,title:'Small Grants'}])).dropNew,[]);
+ assert.deepEqual(S.crossSourceDedupe(M([{...w,id:'wa-2205',url:'https://fundhub.wa.gov/grant/2205'}]),M([w])).dropNew,[]);
+});
+
+test('fix 2: forecasts whose estimated date passed, or over two years old, are closed and hidden (rows kept)',async()=>{
+ const r=await S.sweepGrantsGov(okSearch);const hit=r.hits.get('358676');
+ const aeif=S.applyGrantsGovDetail(S.grantsGovRecord(hit,undefined,NOW),{forecast:{...detailForecast.forecast,estSynopsisPostingDateStr:'2022-01-30-00-00-00',estApplicationResponseDateStr:'2022-01-30-00-00-00'}},NOW);
+ assert.equal(aeif.status,'Closed');assert.equal(aeif.live,false);assert.match(aeif.closedReason,/estimated application date has passed/);assert.ok(S.isHiddenListing(aeif,NOW));
+ const slipped=S.applyGrantsGovDetail(S.grantsGovRecord(hit,undefined,NOW),{forecast:{...detailForecast.forecast,estSynopsisPostingDateStr:'2026-09-01-00-00-00',estApplicationResponseDateStr:'2027-01-15-00-00-00'}},NOW);
+ assert.equal(slipped.status,'Closed');assert.match(slipped.closedReason,/posting date has passed/);
+ // No detail yet: a forecast posted on Grants.gov over 730 days ago is closed from the sweep alone (AFCP 2020).
+ const afcp=S.grantsGovRecord({...hit,openDate:'09/20/2019'},undefined,NOW);assert.equal(afcp.status,'Closed');assert.match(afcp.closedReason,/over two years old/);
+ assert.ok(!S.detailQueue([afcp],NOW,8).length,'closed forecasts are not looked up again');
+ const fresh=S.grantsGovRecord({...hit,openDate:'10/01/2026'},undefined,NOW);assert.equal(fresh.status,'Opens soon');assert.equal(fresh.forecastPostedOn,'2026-10-01');
+ // The estimate survives later sweeps and still closes the record once it passes.
+ const kept=S.grantsGovRecord(hit,{...fresh,detailPending:undefined,description:'x',estDueDate:'2026-10-01',estPostingDate:'2026-09-01'},NOW);assert.equal(kept.status,'Closed');
+});
+
+test('fix 3: forecasts show "Opens soon, expected <date>" in the site date format',async()=>{
+ const r=await S.sweepGrantsGov(okSearch);
+ const f=S.applyGrantsGovDetail(S.grantsGovRecord(r.hits.get('358676'),undefined,NOW),{forecast:{...detailForecast.forecast,estSynopsisPostingDateStr:'2027-03-31-00-00-00',estApplicationResponseDateStr:'2027-06-01-00-00-00'}},NOW);
+ assert.equal(f.status,'Opens soon');assert.equal(f.opensOn,'2027-03-31');assert.equal(f.deadlineLabel,'Forecast: estimated application deadline Jun 1, 2027');
+ assert.equal(L.opensSoonText(f,new Date(NOW)),'Opens soon, expected Mar 31, 2027');
+ assert.equal(L.opensSoonText({opensOn:null},new Date(NOW)),'Opens soon');assert.equal(L.opensSoonText({opensOn:'2026-01-01'},new Date(NOW)),'Opens soon');
+ assert.equal(L.formatDay('2027-03-31'),'Mar 31, 2027');
+ const ui=readFileSync('app/dashboard.tsx','utf8');assert.equal((ui.match(/opensSoonText\(/g)||[]).length>=2,true);assert.doesNotMatch(ui,/' · expected '/);
+});
+
+test('fix 4: contact people in the agency field fall back to the agency name or code; real agency names are untouched',async()=>{
+ const names=JSON.parse(fx('grants-gov-agency-names.json'));
+ for(const a of names.agencies)assert.equal(S.looksLikePerson(a),false,`agency flagged as a person: ${a}`);
+ for(const c of names.contacts)assert.equal(S.looksLikePerson(c),true,`contact not flagged: ${c}`);
+ const r=await S.sweepGrantsGov(okSearch);const hit=r.hits.get('358676');
+ const niac=S.grantsGovRecord({...hit,agency:'Benjamin J Goodman Senior Scientist',agencyCode:'NASA-HQ'},undefined,NOW);assert.equal(niac.funder,'NASA-HQ');
+ const detail=S.applyGrantsGovDetail(niac,{forecast:{...detailForecast.forecast,agencyName:'Benjamin J Goodman\nSenior Scientist',agencyCode:'NASA-HQ',agencyDetails:{agencyName:'NASA Headquarters'}}},NOW);assert.equal(detail.funder,'NASA Headquarters');
+ const noDetails=S.applyGrantsGovDetail({...niac,funder:'Benjamin J Goodman'},{forecast:{...detailForecast.forecast,agencyName:'Benjamin J Goodman\nSenior Scientist',agencyCode:'NASA-HQ',agencyDetails:undefined}},NOW);assert.equal(noDetails.funder,'NASA-HQ');
+});
+
+test('fix 5: generic titles get the sponsor; a forecast with the same title as an open notice is hidden behind it',()=>{
+ assert.equal(S.isGenericTitle('Poetry Prize'),true);assert.equal(S.isGenericTitle('Poetry Chapbook Contest'),true);assert.equal(S.isGenericTitle('Brittingham and Pollak Prizes in Poetry'),false);
+ assert.equal(S.withSponsor('Poetry Prize','Nightboat Books'),'Poetry Prize, Nightboat Books');assert.equal(S.withSponsor('Nightboat Poetry Prize','Nightboat Books'),'Nightboat Poetry Prize');
+ const pw=P.parsePrivateAwards(pw0,NOW);assert.ok(pw.length);
+ const forecast=gov('363168',{title:'Ruth L. Kirschstein NRSA Individual Fellowship',funder:'National Institutes of Health',status:'Opens soon',deadline:null});
+ const open=gov('360534',{title:'Ruth L. Kirschstein NRSA Individual Fellowship',funder:'National Institutes of Health'});
+ const r=S.crossSourceDedupe(M([forecast,open]),M([]));assert.deepEqual(r.dropNew,['gov-363168']);
+ assert.deepEqual(S.crossSourceDedupe(M([forecast,{...open,funder:'Department of Energy'}]),M([])).dropNew,[]);
+ // Same title still shared by visible listings: sponsor added (scraped), then the number when the sponsor is the same.
+ const a={id:'pw-x',title:'Literary Awards',funder:'Arts Council A',url:'https://a.example',status:'Open'},b={id:'pw-y',title:'Literary Awards',funder:'Arts Council B',url:'https://b.example',status:'Open'};
+ assert.deepEqual(S.disambiguateTitles([a,b]).map(g=>g.title),['Literary Awards, Arts Council A','Literary Awards, Arts Council B']);
+ const sac=['363777','363421','363419'].map(id=>gov(id,{title:'FY 2027 Service Area Competition (SAC)',funder:'Health Resources and Services Administration',opportunityNumber:'HRSA-27-0'+id.slice(-2)}));
+ assert.deepEqual(S.disambiguateTitles(sac).map(g=>g.title),sac.map(g=>`FY 2027 Service Area Competition (SAC) (${g.opportunityNumber})`));
+});
+
+test('fix 6: closed listings are hidden from public lists, search, counts and the sitemap; rows and saved items kept',()=>{
+ assert.equal(S.isHiddenListing(gov('1',{status:'Closed'}),NOW),true);
+ assert.equal(S.isHiddenListing(gov('2',{deadline:'2026-10-27'}),NOW),true,'a past deadline (New York date) is closed');
+ assert.equal(S.isHiddenListing(gov('3',{deadline:'2026-10-28'}),NOW),false,'due today is still open');
+ assert.equal(S.isHiddenListing(gov('4',{status:'Opens soon',deadline:null}),NOW),false);
+ assert.deepEqual(S.visibleListings([gov('5',{status:'Closed'}),gov('6')],NOW).map(g=>g.id),['gov-6']);
+ const cat=readFileSync('lib/catalog.ts','utf8');assert.match(cat,/keepIds/);assert.match(cat,/isHiddenListing\(g, now\.getTime\(\)\)/);
+ assert.match(readFileSync('app/api/workspace/route.ts','utf8'),/loadCatalog\(\{owner,keepIds:u\?state\.saved\.map\(s=>s\.grantId\):\[\]\}\)/);
+ assert.match(readFileSync('lib/seo-index.ts','utf8'),/!isHiddenListing\(g, now\.getTime\(\)\)/);
 });

@@ -272,3 +272,16 @@ export function formatLastUpdatedEt(checkedAt: string): string {
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value || '';
   return `${part('month')} ${part('day')}, ${part('year')}, ${part('hour')}:${part('minute')} ${part('dayPeriod')} ET`;
 }
+
+// The site's date format ("Mar 31, 2027") for a YYYY-MM-DD calendar day; anything else is returned unchanged.
+export function formatDay(day: string | null | undefined): string {
+  const iso = isoDay(day);
+  if (!iso) return String(day || '');
+  return new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+// "Opens soon" badge text: adds the expected opening date from the source notice when it is known and not past.
+export function opensSoonText(grant: { opensOn?: string | null }, now = new Date()): string {
+  const on = isoDay(grant.opensOn);
+  return on && on >= calendarDay(now) ? `Opens soon, expected ${formatDay(on)}` : 'Opens soon';
+}

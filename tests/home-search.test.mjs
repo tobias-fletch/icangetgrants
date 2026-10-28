@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const out = resolve('.sites-runtime/home-search-tests'); mkdirSync(out, { recursive: true });
-for (const name of ['source-parsers', 'grants', 'listing', 'site', 'access', 'state-registry', 'workspace-privacy', 'seo-taxonomy', 'seo-exclude', 'seo-index', 'home-search']) {
+for (const name of ['source-parsers', 'grants', 'listing', 'site', 'access', 'state-registry', 'workspace-privacy', 'fetch-budget', 'state-discovery', 'catalog-sweep', 'seo-taxonomy', 'seo-exclude', 'seo-index', 'home-search']) {
   const js = ts.transpileModule(readFileSync(`lib/${name}.ts`, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
     .replace(/from ['"](\.\/[^'"]+)['"]/g, "from '$1.mjs'");
   writeFileSync(`${out}/${name}.mjs`, js);

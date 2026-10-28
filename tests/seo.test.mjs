@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const out = resolve('.sites-runtime/seo-tests'); mkdirSync(out, { recursive: true });
-for (const name of ['source-parsers', 'grants', 'listing', 'site', 'access', 'state-registry', 'workspace-privacy', 'seo-taxonomy', 'seo-exclude', 'seo-index', 'seo-store', 'signin-url', 'save-profile']) {
+for (const name of ['source-parsers', 'grants', 'listing', 'site', 'access', 'state-registry', 'workspace-privacy', 'fetch-budget', 'state-discovery', 'catalog-sweep', 'seo-taxonomy', 'seo-exclude', 'seo-index', 'seo-store', 'signin-url', 'save-profile']) {
   const js = ts.transpileModule(readFileSync(`lib/${name}.ts`, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
     .replace(/from ['"](\.\/[^'"]+)['"]/g, "from '$1.mjs'");
   writeFileSync(`${out}/${name}.mjs`, js);
@@ -309,4 +309,17 @@ test('404s are cached for 5 minutes, pages keep the longer edge cache', () => {
   assert.equal(S.seoRouteImpossible('/grants/wyoming'), false);
   const proxy = readFileSync('proxy.ts', 'utf8');
   assert.match(proxy, /seoCacheControl\(await seoSiteFor\(pathname\), pathname\)/);
+});
+
+test('SEO index (sitemap, topic/state counts, soonest deadlines) skips hidden listings: duplicates and closed rows', () => {
+  const base = { ...(seeds.find(x => x.kind === 'Scholarship') || seeds[0]), kind: 'Scholarship', deadline: '2026-12-01', url: 'https://example.org/a' };
+  const at = new Date('2026-10-28T15:00:00Z');
+  const idx = S.buildSeoIndex([
+    { ...base, id: 'keep', status: 'Open' },
+    { ...base, id: 'dup', status: 'Open', duplicateOf: 'keep', url: 'https://example.org/b' },
+    { ...base, id: 'closed', status: 'Closed', url: 'https://example.org/c' },
+    { ...base, id: 'fc', status: 'Opens soon', deadline: null, opensOn: '2027-03-31', url: 'https://example.org/d' },
+  ], { checkedAt: '2026-10-28T13:00:00Z' }, at);
+  assert.deepEqual(Object.keys(idx.listings).sort(), ['fc', 'keep']);
+  assert.equal(idx.listings.fc.opensOn, '2027-03-31');
 });

@@ -4,11 +4,15 @@
 import type { Grant } from './grants';
 import { clean, tidyTitle, explicitDate, easternDay, safeUrl, parsePrivateAwards } from './source-parsers';
 import { normalizeLeadUrl } from './state-discovery';
+import { formatDay, isOpenGrant } from './listing';
 
 export const DAY_MS = 86400000;
 export const HIDE_UNSEEN_AFTER_DAYS = 30;
 export const DETAIL_REFRESH_DAYS = 14;
 export const HEALTH_STALE_AFTER_MS = 26 * 3600000;
+// A Grants.gov forecast first posted this long ago is treated as stale even before its detail lookup: in the
+// 2026-10-28 sweep every forecast this old had estimated dates in the past or no dates at all.
+export const FORECAST_STALE_AFTER_DAYS = 730;
 // A fetch that returns fewer than this share of a source's previously active listings is treated as suspect:
 // nothing is retired for that source in this run and the source is reported Partial.
 export const RETIRE_MIN_SHARE = 0.5;
@@ -27,7 +31,7 @@ export const grantsGovDetailUrl = (id: string | number) => 'https://www.grants.g
 export function sweepRequest(group: { eligibilities: string }) {
   return { rows: GRANTS_GOV_ROWS, startRecordNum: 0, oppStatuses: 'forecasted|posted', fundingInstruments: 'G', eligibilities: group.eligibilities, sortBy: 'openDate|desc' };
 }
-export type SweepHit = { id: string; number: string; title: string; agency: string; openDate: string; closeDate: string; oppStatus: string; types: string[] };
+export type SweepHit = { id: string; number: string; title: string; agency: string; agencyCode?: string; openDate: string; closeDate: string; oppStatus: string; types: string[] };
 export type SweepResult = { hits: Map<string, SweepHit>; complete: boolean; queries: number; errors: string[]; deferred: number };
 
 /** Runs the three sweep searches. complete is false when any search failed, was deferred or returned fewer rows
@@ -44,7 +48,7 @@ export async function sweepGrantsGov(search: (body: ReturnType<typeof sweepReque
         if (!h?.id || !['posted', 'forecasted'].includes(String(h.oppStatus))) continue;
         const id = String(h.id); const prev = hits.get(id);
         if (prev) { prev.types = [...new Set([...prev.types, ...group.types])]; continue; }
-        hits.set(id, { id, number: clean(h.number), title: tidyTitle(h.title), agency: clean(h.agency || h.agencyName), openDate: clean(h.openDate), closeDate: clean(h.closeDate), oppStatus: String(h.oppStatus), types: [...group.types] });
+        hits.set(id, { id, number: clean(h.number), title: tidyTitle(h.title), agency: clean(h.agency || h.agencyName), agencyCode: clean(h.agencyCode) || undefined, openDate: clean(h.openDate), closeDate: clean(h.closeDate), oppStatus: String(h.oppStatus), types: [...group.types] });
       }
     } catch (e) {
       complete = false;
@@ -55,18 +59,42 @@ export async function sweepGrantsGov(search: (body: ReturnType<typeof sweepReque
   return { hits, complete, queries, errors, deferred };
 }
 
+// ---------- Agency vs contact person ----------
+// Grants.gov's synopsis/forecast "agencyName" is often the contact person ("Benjamin J Goodman\nSenior Scientist").
+// Conservative: only a staff job title, an email or phone number, or a "First M Last" name with no agency word counts.
+const JOB_TITLE = /\b(?:grantor|grants?\s+(?:management\s+)?(?:officer|specialist)|contracting\s+officer|contract(?:ing)?\s+specialist|program\s+(?:analyst|officer|manager|executive|specialist|coordinator)|senior\s+scientist|scientist|specialist|analyst|coordinator|officer)\b/i;
+const AGENCY_WORD = /\b(?:department|dept|office|agency|administration|institutes?|service|services|center|centers|bureau|mission|embassy|foundation|fund|national|council|commission|corps|command|laboratory|lab|research|endowment|division|board|authority|corporation|academy|survey|federal|regional|army|navy|naval|air\s+force|nasa|noaa|faa|nsf|nih|cdc|fda)\b|\bU\.?S\.?\b/i;
+const PERSON_NAME = /^(?:[Dd]r\.?\s+)?[A-Za-z][a-z'’-]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z'’]+(?:-[A-Z][a-z'’]+)?$/;
+const MIDDLE_INITIAL = /^[A-Za-z][a-z'’-]+\s+[A-Z]\.?\s+[A-Z][a-z'’]+(?:-[A-Z][a-z'’]+)?$/;
+export function looksLikePerson(value: unknown): boolean {
+  const raw = String(value ?? '').trim(); if (!raw) return false;
+  if (/@|\b\d{3}[-.)\s]\s*\d{3}[-.\s]\d{4}\b/.test(raw)) return true;
+  const lines = raw.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean), first = lines[0] || '';
+  const name = PERSON_NAME.test(first) && !AGENCY_WORD.test(first);
+  if (lines.length > 1 && name) return true;
+  if (AGENCY_WORD.test(raw)) return false;
+  if (JOB_TITLE.test(raw)) return true;
+  return name && (MIDDLE_INITIAL.test(first) || /^dr\.?\s/i.test(first));
+}
+/** The funder shown for a Grants.gov record: the first agency-like name among the detail's agency details, the
+ *  synopsis agencyName, the sweep agency, the top-level agency and finally the agency code. */
+export function grantsGovAgency(candidates: unknown[], fallback = 'Federal agency'): string {
+  for (const c of candidates) { const v = clean(String(c ?? '')).trim(); if (v && !looksLikePerson(c)) return v; }
+  return fallback;
+}
+
 const PLACEHOLDER_REQ = 'Read the full notice for applicant eligibility, cost sharing and other restrictions.';
 /** One sweep hit as a catalog record. Enriched detail fields (description, amount, requirements, tags, applicant
  *  codes) from an earlier detail lookup are kept; deadline, title, status and agency come from this run. */
 export function grantsGovRecord(hit: SweepHit, prev: Grant | undefined, now: string): Grant {
-  const id = 'gov-' + hit.id, forecast = hit.oppStatus === 'forecasted';
+  const id = 'gov-' + hit.id, forecast = hit.oppStatus === 'forecasted', today = easternDay(now);
   const deadline = forecast ? null : explicitDate(hit.closeDate) || null;
-  const closed = !!deadline && deadline < easternDay(now);
+  const closed = !!deadline && deadline < today;
   // A forecast that has now been posted gets a fresh detail lookup for the posted notice.
   const enriched = !!prev && !prev.detailPending && !!prev.description && !(prev.status === 'Opens soon' && !forecast);
   const description = enriched ? prev!.description : `${forecast ? 'Forecasted' : 'Posted'} federal grant opportunity ${hit.number} from ${hit.agency || 'a federal agency'}. Open the Grants.gov listing for the full notice, eligibility and award details.`;
   const g: Grant = {
-    id, title: hit.title, funder: hit.agency || prev?.funder || 'Federal agency', description,
+    id, title: hit.title, funder: grantsGovAgency([hit.agency, prev?.funder, hit.agencyCode]), description,
     types: hit.types, countries: ['United States'], tags: enriched ? prev!.tags : [], amount: enriched ? prev!.amount : null,
     deadline, deadlineLabel: forecast ? (enriched && prev!.deadlineLabel?.startsWith('Forecast') ? prev!.deadlineLabel : 'Forecast: estimated dates on the Grants.gov notice') : hit.closeDate || 'See notice',
     url: grantsGovDetailUrl(hit.id), sourceUrl: grantsGovDetailUrl(hit.id), source: 'Grants.gov',
@@ -76,11 +104,27 @@ export function grantsGovRecord(hit: SweepHit, prev: Grant | undefined, now: str
   };
   if (prev?.applicantCodes) g.applicantCodes = prev.applicantCodes;
   if (prev?.detailChecked) g.detailChecked = prev.detailChecked;
-  if (forecast) g.opensOn = enriched ? prev!.opensOn ?? null : null;
-  if (!enriched) g.detailPending = true;
+  if (forecast) {
+    const postedOn = explicitDate(hit.openDate) || prev?.forecastPostedOn;
+    if (postedOn) g.forecastPostedOn = postedOn;
+    if (enriched) { if (prev!.estPostingDate) g.estPostingDate = prev!.estPostingDate; if (prev!.estDueDate) g.estDueDate = prev!.estDueDate; }
+    g.opensOn = enriched && prev!.opensOn && prev!.opensOn >= today ? prev!.opensOn : null;
+    const stale = staleForecastReason(g, now);
+    if (stale) { g.status = 'Closed'; g.live = false; g.closedReason = stale; }
+  }
+  if (!enriched && g.status !== 'Closed') g.detailPending = true;
   return g;
 }
 
+/** Why a forecast should no longer be listed: an estimated posting or application date from the Grants.gov
+ *  notice is already past, or the forecast itself was first posted over FORECAST_STALE_AFTER_DAYS ago. */
+export function staleForecastReason(g: Pick<Grant, 'estPostingDate' | 'estDueDate' | 'forecastPostedOn'>, now: string): string | null {
+  const today = easternDay(now);
+  if (g.estDueDate && g.estDueDate < today) return 'Forecast estimated application date has passed';
+  if (g.estPostingDate && g.estPostingDate < today) return 'Forecast estimated posting date has passed';
+  if (g.forecastPostedOn && Date.parse(now) - Date.parse(g.forecastPostedOn + 'T12:00:00Z') > FORECAST_STALE_AFTER_DAYS * DAY_MS) return 'Forecast is over two years old';
+  return null;
+}
 const isoFromStr = (v: unknown) => { const m = String(v || '').match(/^(20\d{2})-(\d{2})-(\d{2})/); return m ? `${m[1]}-${m[2]}-${m[3]}` : null; };
 const bool = (v: unknown) => v === true || String(v).toLowerCase() === 'true' || String(v).toLowerCase() === 'yes';
 /** Applies a fetchOpportunity response (synopsis for posted, forecast for forecasted) to a sweep record. */
@@ -93,14 +137,18 @@ export function applyGrantsGovDetail(g: Grant, data: any, now: string): Grant {
   out.amount = Number.isFinite(ceiling) && ceiling > 0 ? ceiling : null;
   out.tags = (s.fundingActivityCategories || []).map((x: any) => clean(x?.description)).filter(Boolean);
   out.applicantCodes = (s.applicantTypes || []).map((a: any) => String(a?.id));
-  if (s.agencyName) out.funder = clean(s.agencyName);
+  out.funder = grantsGovAgency([s.agencyDetails?.agencyName, data?.agencyDetails?.agencyName, s.agencyName, g.funder, data?.topAgencyDetails?.agencyName, s.agencyCode, data?.owningAgencyCode], g.funder || 'Federal agency');
   out.requirements = [clean(s.applicantEligibilityDesc) || PLACEHOLDER_REQ, ...(bool(s.costSharing) ? ['Cost sharing or matching funds are required.'] : [])];
   if (data?.forecast && !data?.synopsis) {
     // Agencies often leave stale estimates on old forecasts; an estimate already in the past is not shown.
-    const today = easternDay(now), est = (v: unknown) => { const d = isoFromStr(v); return d && d >= today ? d : null; };
-    const opens = est(s.estSynopsisPostingDateStr), due = est(s.estApplicationResponseDateStr);
-    out.opensOn = opens;
-    out.deadlineLabel = due ? `Forecast: estimated application deadline ${due}` : 'Forecast: application dates not yet published';
+    // A forecast whose estimated posting or application date has passed is closed (row kept, hidden).
+    const today = easternDay(now), postAt = isoFromStr(s.estSynopsisPostingDateStr), dueAt = isoFromStr(s.estApplicationResponseDateStr);
+    if (postAt) out.estPostingDate = postAt; else delete out.estPostingDate;
+    if (dueAt) out.estDueDate = dueAt; else delete out.estDueDate;
+    out.opensOn = postAt && postAt >= today ? postAt : null;
+    out.deadlineLabel = dueAt && dueAt >= today ? `Forecast: estimated application deadline ${formatDay(dueAt)}` : 'Forecast: application dates not yet published';
+    const stale = staleForecastReason(out, now);
+    if (stale) { out.status = 'Closed'; out.live = false; out.closedReason = stale; }
   } else if (!out.deadline) {
     const due = isoFromStr(s.responseDateStr) || explicitDate(clean(s.responseDate));
     if (due) { out.deadline = due; out.deadlineLabel = clean(s.responseDate) || due; if (due < easternDay(now)) out.status = 'Closed'; }
@@ -108,11 +156,18 @@ export function applyGrantsGovDetail(g: Grant, data: any, now: string): Grant {
   delete out.detailPending;
   return out;
 }
-/** Detail lookups for this run: never-enriched records first (posted before forecasts, soonest deadline first),
- *  then enriched records not re-checked for DETAIL_REFRESH_DAYS, oldest first. */
+/** Detail lookups for this run: never-enriched records first, then enriched records not re-checked for
+ *  DETAIL_REFRESH_DAYS, oldest first. Half of the pending slots go to forecasts (their estimated dates decide
+ *  "expected" and stale), alternating the oldest-posted (most likely stale) and newest-posted forecast; the rest
+ *  go to posted records, soonest deadline first. Unused slots on either side go to the other. */
 export function detailQueue(records: Grant[], now: string, limit: number): Grant[] {
   const cutoff = Date.parse(now) - DETAIL_REFRESH_DAYS * DAY_MS;
-  const pending = records.filter(g => g.detailPending && g.status !== 'Closed').sort((a, b) => Number(a.status === 'Opens soon') - Number(b.status === 'Opens soon') || String(a.deadline || '9999').localeCompare(String(b.deadline || '9999')) || a.id.localeCompare(b.id));
+  const open = records.filter(g => g.detailPending && g.status !== 'Closed');
+  const posted = open.filter(g => g.status !== 'Opens soon').sort((a, b) => String(a.deadline || '9999').localeCompare(String(b.deadline || '9999')) || a.id.localeCompare(b.id));
+  const byPosted = open.filter(g => g.status === 'Opens soon').sort((a, b) => String(a.forecastPostedOn || '').localeCompare(String(b.forecastPostedOn || '')) || a.id.localeCompare(b.id));
+  const forecasts: Grant[] = []; for (let lo = 0, hi = byPosted.length - 1; lo <= hi; lo++, hi--) { forecasts.push(byPosted[lo]); if (hi !== lo) forecasts.push(byPosted[hi]); }
+  const fSlots = Math.min(forecasts.length, Math.max(Math.ceil(limit / 2), limit - posted.length));
+  const pending = [...posted.slice(0, limit - fSlots), ...forecasts.slice(0, fSlots), ...posted.slice(limit - fSlots), ...forecasts.slice(fSlots)];
   const lastDetail = (g: Grant) => Date.parse(g.detailChecked || g.discovered || '') || 0;
   const due = records.filter(g => !g.detailPending && g.status !== 'Closed' && lastDetail(g) < cutoff).sort((a, b) => lastDetail(a) - lastDetail(b) || a.id.localeCompare(b.id));
   return [...pending, ...due].slice(0, limit);
@@ -173,6 +228,45 @@ export async function fetchWaFundHub(get: (url: string) => Promise<string>, maxP
   return { records, inactiveIds, complete, queries };
 }
 
+// ---------- Generic titles ----------
+// Titles made only of generic award words ("Poetry Prize", "Book Prize", "Chapbook Contest") get the sponsor added.
+const GENERIC_WORDS = new Set('a an the and of for in on to by with annual open first second full length full-length book books chapbook chapbooks poetry poem poems poet poets fiction nonfiction non creative short story stories flash prose essay essays novel novella novels manuscript manuscripts writing writers writer literary literature translation translations prize prizes award awards contest contests competition competitions fellowship fellowships grant grants residency residencies emerging debut new collection series memoir reading program publication prizes international national chapbook contest'.split(' '));
+export function isGenericTitle(title: string): boolean {
+  const words = normalizeTitle(title).split(' ').filter(Boolean);
+  return words.length > 0 && words.length <= 6 && words.every(w => GENERIC_WORDS.has(w) || /^\d{4}$/.test(w));
+}
+// The title already names the sponsor when every distinctive word of the sponsor's name is in it
+// ("Nightboat Poetry Prize" for Nightboat Books).
+const SPONSOR_FILLER = new Set('the a an of and for books book press publishing publishers magazine review journal quarterly foundation inc llc co company literary arts editions'.split(' '));
+const hasSponsor = (title: string, sponsor: string) => {
+  const t = new Set(normalizeTitle(title).split(' ')), words = normalizeTitle(sponsor).split(' ').filter(w => w && !SPONSOR_FILLER.has(w));
+  return !sponsor || (words.length ? words.every(w => t.has(w)) : normalizeTitle(title).includes(normalizeTitle(sponsor)));
+};
+export function withSponsor(title: string, sponsor: string): string {
+  const t = clean(title), s = clean(sponsor);
+  return s && !hasSponsor(t, s) ? `${t}, ${s}` : t;
+}
+/** Listings that still share a normalized title with another visible listing get their sponsor added (then the
+ *  opportunity number when the sponsor is the same too). Grants.gov records are only renamed when the number differs.
+ *  Returns the records whose titles changed. */
+export function disambiguateTitles(visible: Grant[]): Grant[] {
+  const groups = new Map<string, Grant[]>();
+  for (const g of visible) { const k = normalizeTitle(g.title || ''); if (k) groups.set(k, [...(groups.get(k) || []), g]); }
+  const changed: Grant[] = [];
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const funders = new Set(list.map(g => normalizeTitle(g.funder || '')));
+    for (const g of list) {
+      const sameFunder = list.filter(x => normalizeTitle(x.funder || '') === normalizeTitle(g.funder || '')).length > 1;
+      let title = g.title;
+      if (funders.size > 1 && !g.id.startsWith('gov-')) title = withSponsor(title, g.funder);
+      if (sameFunder && g.opportunityNumber && !title.includes(g.opportunityNumber)) title = `${title} (${g.opportunityNumber})`;
+      if (title !== g.title) changed.push({ ...g, title });
+    }
+  }
+  return changed;
+}
+
 export const POETS_WRITERS_PAGE_SIZE = 100;
 export const poetsWritersUrl = (page: number) => 'https://www.pw.org/grants?items_per_page=100&field_deadline_value=1' + (page ? '&page=' + page : '');
 /** Pages through Poets & Writers' upcoming-deadline listing. A page is "full" by its raw row count (the parser drops
@@ -182,7 +276,7 @@ export async function fetchPoetsWriters(get: (url: string) => Promise<string>, m
   for (let page = 0; page < maxPages; page++) {
     const html = await get(poetsWritersUrl(page));queries++;
     const listed = html.split(/<div class="views-row [^"]*">/).length - 1;
-    if (listed) for (const g of parsePrivateAwards(html, now)) records.set(g.id, g);
+    if (listed) for (const g of parsePrivateAwards(html, now)) records.set(g.id, isGenericTitle(g.title) || /_\d+$/.test(g.id) ? { ...g, title: withSponsor(g.title, g.funder) } : g);
     if (listed < POETS_WRITERS_PAGE_SIZE) { complete = true; break; }
   }
   return { records: [...records.values()], complete, queries };
@@ -231,6 +325,15 @@ export function sourceRank(g: Grant): number {
   return 3;
 }
 export type DedupeResult = { dropNew: string[]; markExisting: Grant[]; clearExisting: Grant[]; deduped: number };
+// Same normalized title and same fixed deadline across two different sources (e.g. a Grants.gov notice that
+// Washington FundHub re-lists under its own ID). At least three words, so short generic titles never pair up.
+export function titleDeadlineKey(g: Grant): string | null {
+  const title = normalizeTitle(g.title || ''); const d = String(g.deadline || '');
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) && title.split(' ').length >= 3 ? 'td:' + title + '|' + d : null;
+}
+const sourceOf = (g: Grant) => g.id.startsWith('gov-') ? 'Grants.gov' : g.source || g.id.split('-')[0];
+// A Grants.gov forecast with the same normalized title and agency as an open Grants.gov notice: the open one is kept.
+const forecastPairKey = (g: Grant) => g.id.startsWith('gov-') ? 'fp:' + normalizeTitle(g.title || '') + '|' + normalizeTitle(g.funder || '') : null;
 /** Finds records that describe the same opportunity as a higher-ranked one (same Grants.gov ID, opportunity number,
  *  or normalized URL plus title). New losers are not inserted; existing losers get duplicateOf and are hidden. */
 export function crossSourceDedupe(staged: Map<string, Grant>, existing: Map<string, Grant>): DedupeResult {
@@ -239,10 +342,17 @@ export function crossSourceDedupe(staged: Map<string, Grant>, existing: Map<stri
     .sort((a, b) => sourceRank(a) - sourceRank(b) || String(a.discovered || '').localeCompare(String(b.discovered || '')) || a.id.localeCompare(b.id));
   const owner = new Map<string, string>(), loserOf = new Map<string, string>();
   for (const g of order) {
-    const keys = dedupeKeys(g); const winner = keys.map(k => owner.get(k)).find(id => id && id !== g.id);
+    const keys = dedupeKeys(g); let winner = keys.map(k => owner.get(k)).find(id => id && id !== g.id);
+    const td = titleDeadlineKey(g), tdOwner = td ? owner.get(td) : undefined;
+    if (!winner && tdOwner && tdOwner !== g.id && sourceOf(all.get(tdOwner)!) !== sourceOf(g)) winner = tdOwner;
     if (winner) { loserOf.set(g.id, winner); continue; }
     for (const k of keys) if (!owner.has(k)) owner.set(k, g.id);
+    if (td && !owner.has(td)) owner.set(td, g.id);
   }
+  // Forecast/open pairs on Grants.gov: the forecast is hidden behind the open notice with the same title and agency.
+  const openByPair = new Map<string, string>();
+  for (const g of order) { const k = forecastPairKey(g); if (k && g.status !== 'Opens soon' && !loserOf.has(g.id) && !openByPair.has(k)) openByPair.set(k, g.id); }
+  for (const g of order) { const k = forecastPairKey(g); const open = k && g.status === 'Opens soon' ? openByPair.get(k) : undefined; if (open && !loserOf.has(g.id)) loserOf.set(g.id, open); }
   const dropNew: string[] = [], markExisting: Grant[] = [], clearExisting: Grant[] = [];
   for (const [id, winner] of loserOf) {
     const prior = existing.get(id), current = staged.get(id) || prior!;
@@ -265,8 +375,13 @@ export function isUnseenScraped(g: Grant, now: string | number = Date.now()): bo
   return !Number.isFinite(seen) || at - seen > HIDE_UNSEEN_AFTER_DAYS * DAY_MS;
 }
 export const hasTitleAndLink = (g: Pick<Grant, 'title' | 'url'>) => !!clean(g.title) && !!safeUrl(String(g.url || ''), 'https://invalid.invalid') && /^https?:\/\//i.test(String(g.url || '').trim());
+/** Closed rows (status Closed, or a fixed deadline before today in New York) stay in the catalog but are not
+ *  listed publicly, searched, counted or put in the sitemap. */
+export function isClosedListing(g: Pick<Grant, 'status' | 'deadline'>, now: string | number = Date.now()): boolean {
+  return !isOpenGrant(g, new Date(typeof now === 'number' ? now : Date.parse(now)));
+}
 export function isHiddenListing(g: Grant, now: string | number = Date.now()): boolean {
-  return !!g.duplicateOf || !hasTitleAndLink(g) || isUnseenScraped(g, now);
+  return !!g.duplicateOf || !hasTitleAndLink(g) || isUnseenScraped(g, now) || isClosedListing(g, now);
 }
 export const visibleListings = <T extends Grant>(grants: T[], now: string | number = Date.now()) => grants.filter(g => !isHiddenListing(g, now));
 

@@ -1,7 +1,8 @@
 // The precomputed "seo-index": one compact JSON row (jobs id 'seo-index') written once per catalog refresh,
 // plus the pure functions that turn it into the /grants pages at request time (spec §4 rule 2).
 // Pure module, relative imports only, so tests can transpile it.
-import { calendarDay, isOpenGrant, effectiveDeadline, deadlineView, formatLastUpdatedEt, refreshFreshness } from './listing';
+import { calendarDay, isOpenGrant, effectiveDeadline, deadlineView, formatLastUpdatedEt, refreshFreshness, opensSoonText } from './listing';
+import { isHiddenListing } from './catalog-sweep';
 import { seeds, type Grant } from './grants';
 import { SITE_NAME, SITE_ORIGIN } from './site';
 import { stripSearchContext } from './workspace-privacy';
@@ -12,12 +13,12 @@ import {
 } from './seo-taxonomy';
 
 export const SEO_INDEX_JOB_ID = 'seo-index';
-export const SEO_INDEX_VERSION = 1;
+export const SEO_INDEX_VERSION = 2;
 
 export type SeoListing = {
   id: string; title: string; funder: string; url: string;
   amount: number | null; deadline: string | null; deadlineLabel?: string;
-  status?: string; live?: boolean; sourceMode?: string; kind: string;
+  status?: string; opensOn?: string | null; live?: boolean; sourceMode?: string; kind: string;
   states: string[]; nationwide: boolean; checked: string; source?: string; attribution?: string;
   cats: string[];
 };
@@ -73,6 +74,7 @@ export function compactListing(g: Grant): SeoListing {
   };
   if (g.deadlineLabel) l.deadlineLabel = g.deadlineLabel;
   if (g.status) l.status = g.status;
+  if (g.opensOn) l.opensOn = g.opensOn;
   if (g.live != null) l.live = !!g.live;
   if (g.sourceMode) l.sourceMode = g.sourceMode;
   if (g.source) l.source = g.source;
@@ -83,7 +85,8 @@ export function compactListing(g: Grant): SeoListing {
 /** Builds the stored row. Only listings open at build time (and with an http(s) link) are kept. */
 export function buildSeoIndex(grants: Grant[], refresh: { checkedAt?: string } | null, now = new Date()): SeoIndex {
   const listings: Record<string, SeoListing> = {};
-  const open = grants.filter(g => g && g.id && httpUrl(g.url) && isOpenGrant(g, now));
+  // Duplicates, closed rows and long-unseen scraped listings are hidden here exactly as in the public catalog.
+  const open = grants.filter(g => g && g.id && httpUrl(g.url) && isOpenGrant(g, now) && !isHiddenListing(g, now.getTime()));
   // Junk filter (lib/seo-exclude.ts): link labels and same-page duplicates stay in the catalog but not on these pages.
   const excluded = new Set(seoExclusions(open).map(e => e.id));
   for (const g of open) if (!excluded.has(g.id)) listings[g.id] = compactListing(g);
@@ -188,7 +191,7 @@ export function listingView(l: SeoListing, now = new Date()) {
     amount: l.amount ? 'Up to ' + money(l.amount) : 'Amount varies',
     deadline: dv.iso ? new Date(dv.iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : dv.text.replace(/^\s*·\s*/, '') || 'Check provider',
     deadlineIsFixed: !!dv.iso,
-    status: l.live ? l.status || 'Live source listing' : l.status || l.sourceMode || 'Curated · verify current cycle',
+    status: l.status === 'Opens soon' ? opensSoonText(l, now) : l.live ? l.status || 'Live source listing' : l.status || l.sourceMode || 'Curated · verify current cycle',
     checked: l.checked ? 'Checked ' + dayEt(l.checked) : '',
   };
 }
