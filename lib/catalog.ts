@@ -23,6 +23,26 @@ export type CatalogPayload = {
 // Only the catalog owner gets the full refresh projection; everyone else gets freshness only.
 // keepIds: the signed-in account's own saved grants, kept even when closed so its tracker still shows them.
 export async function loadCatalog({ owner = false, keepIds = [] }: { owner?: boolean; keepIds?: string[] } = {}): Promise<CatalogPayload> {
+  return readCatalog(owner, keepIds);
+}
+
+// loadPublicCatalog(): the visitor view (no owner, no saved ids) is the same for every visitor, so it is memoized
+// per isolate for PUBLIC_CATALOG_TTL_MS. Used by the home render and the identity-free public API
+// (/api/workspace?public=1); signed-in workspace loads keep calling loadCatalog() and always read D1, so a
+// discovery scan shows up right away. Only a settled D1 result is kept (never a pending promise, so no request
+// waits on another request's I/O); error and built-in fallbacks are never memoized.
+export const PUBLIC_CATALOG_TTL_MS = 60_000;
+let publicMemo: { at: number; value: CatalogPayload } | null = null;
+export function clearPublicCatalogMemo() { publicMemo = null; }
+export async function loadPublicCatalog(): Promise<CatalogPayload> {
+  const at = Date.now();
+  if (publicMemo && at >= publicMemo.at && at - publicMemo.at < PUBLIC_CATALOG_TTL_MS) return publicMemo.value;
+  const value = await readCatalog(false, []);
+  publicMemo = value.source === 'd1' && !value.error ? { at, value } : null;
+  return value;
+}
+
+async function readCatalog(owner: boolean, keepIds: string[]): Promise<CatalogPayload> {
   try {
     const db = getDb();
     const present = await db.select({ id: catalog.id }).from(catalog);
