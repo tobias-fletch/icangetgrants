@@ -53,13 +53,9 @@ export function homeSearchHref(q: string, state: string): string {
 // /grants hub order. Only pages the hub lists (indexable, so they return 200) are passed in.
 const TOPIC_FIRST = ['/grants/small-business', '/grants/nonprofit', '/grants/scholarships'];
 // State chips: every state that has a /grants/<state> page in the /grants hub's "By state" list (the same list
-// the sitemap uses), so a new state page shows up on the home page by itself. The three original chips keep their
-// place at the front; every other state page follows in the hub's order (A–Z).
-export const HOME_STATE_FIRST = ['/grants/new-york', '/grants/pennsylvania', '/grants/louisiana'];
-
+// the sitemap uses), so a new state page shows up on the home page by itself. Sorted A–Z by label, nothing pinned.
 export function homeStateLinks(states: QuickLink[]): QuickLink[] {
-  const rank = (p: string) => { const i = HOME_STATE_FIRST.indexOf(p); return i < 0 ? HOME_STATE_FIRST.length : i; };
-  return states.map((l, i) => ({ l, i })).sort((a, b) => rank(a.l.path) - rank(b.l.path) || a.i - b.i).map(x => x.l);
+  return [...states].sort((a, b) => a.label.localeCompare(b.label, 'en') || a.path.localeCompare(b.path, 'en'));
 }
 
 export function homeQuickLinks(hub: { categories: QuickLink[]; states: QuickLink[] } | null | undefined): HomeQuickLinks {

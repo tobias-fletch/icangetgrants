@@ -53,15 +53,15 @@ test('URL parsing trims, caps the keyword, and ignores unknown states', () => {
   assert.equal(H.homeSearchHref(' ', ''), '/');
 });
 
-test('quick links are real hub pages: small business and nonprofit first; states NY, PA, LA first, then the other state pages', () => {
+test('quick links are real hub pages: small business and nonprofit first; state chips A–Z', () => {
   const links = H.homeQuickLinks(hub);
   const hubPaths = new Set([...hub.categories, ...hub.states].map(l => l.path));
   for (const l of [...links.topics, ...links.states]) { assert.ok(hubPaths.has(l.path), l.path); assert.equal(site.pages.get(l.path)?.status, 'indexable', l.path); }
   assert.equal(links.topics.length, hub.categories.length);
   const at = p => links.topics.findIndex(l => l.path === p);
   if (at('/grants/small-business') >= 0 && at('/grants/nonprofit') >= 0) assert.ok(at('/grants/small-business') < at('/grants/nonprofit'));
-  const first = H.HOME_STATE_FIRST.filter(p => hub.states.some(s => s.path === p));
-  assert.deepEqual(links.states.map(l => l.path), [...first, ...hub.states.map(s => s.path).filter(p => !first.includes(p))]);
+  const labels = links.states.map(l => l.label);
+  assert.deepEqual(labels, [...labels].sort((a, b) => a.localeCompare(b, 'en')));
   assert.deepEqual(H.homeQuickLinks(null), H.NO_QUICK_LINKS);
 });
 
@@ -79,18 +79,20 @@ test('home "By state" chips list exactly the states that have /grants/<state> pa
   assert.equal(new Set(chips.map(l => l.path)).size, chips.length);
 });
 
-test('state chips: a new state page appears automatically; pinned three keep their order; missing ones drop out', () => {
-  const link = slug => ({ path: '/grants/' + slug, label: slug, count: 5 });
-  const hubLike = (...slugs) => ({ categories: [], states: slugs.map(link) });
-  // the hub lists state pages A–Z
-  assert.deepEqual(H.homeQuickLinks(hubLike('california', 'louisiana', 'new-york', 'pennsylvania', 'washington')).states.map(l => l.path),
-    ['/grants/new-york', '/grants/pennsylvania', '/grants/louisiana', '/grants/california', '/grants/washington']);
-  assert.deepEqual(H.homeQuickLinks(hubLike('california', 'louisiana', 'new-york', 'oregon', 'pennsylvania', 'washington')).states.map(l => l.path),
-    ['/grants/new-york', '/grants/pennsylvania', '/grants/louisiana', '/grants/california', '/grants/oregon', '/grants/washington']);
-  assert.deepEqual(H.homeQuickLinks(hubLike('california', 'new-york', 'washington')).states.map(l => l.path),
-    ['/grants/new-york', '/grants/california', '/grants/washington']);
+test('state chips: A–Z by label, nothing pinned; a new state page appears on its own; a state without a page drops out', () => {
+  const names = { 'california': 'California', 'louisiana': 'Louisiana', 'new-york': 'New York', 'oregon': 'Oregon', 'pennsylvania': 'Pennsylvania', 'washington': 'Washington', 'texas': 'Texas' };
+  const hubLike = (...slugs) => ({ categories: [], states: slugs.map(s => ({ path: '/grants/' + s, label: names[s], count: 5 })) });
+  const chips = h => H.homeQuickLinks(h).states.map(l => l.label);
+  // input deliberately out of order: the chips sort A–Z regardless
+  assert.deepEqual(chips(hubLike('new-york', 'washington', 'pennsylvania', 'louisiana', 'california')),
+    ['California', 'Louisiana', 'New York', 'Pennsylvania', 'Washington']);
+  assert.deepEqual(chips(hubLike('california', 'louisiana', 'new-york', 'pennsylvania', 'washington', 'oregon')),
+    ['California', 'Louisiana', 'New York', 'Oregon', 'Pennsylvania', 'Washington']);
+  assert.deepEqual(chips(hubLike('washington', 'california', 'new-york')), ['California', 'New York', 'Washington']);
   assert.deepEqual(H.homeQuickLinks(hubLike()).states, []);
-  assert.deepEqual(H.homeQuickLinks(hubLike('texas')).states[0], { path: '/grants/texas', label: 'texas' });
+  assert.deepEqual(H.homeQuickLinks(hubLike('texas')).states, [{ path: '/grants/texas', label: 'Texas' }]);
+  assert.equal(H.HOME_STATE_FIRST, undefined);
+  assert.equal(H.HOME_STATE_PAGES, undefined);
 });
 
 test('home search block comes first and feeds the existing results; hero, match form and alerts CTA follow unchanged', () => {
