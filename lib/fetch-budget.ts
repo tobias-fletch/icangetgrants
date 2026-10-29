@@ -6,7 +6,13 @@
 export const RUN_FETCH_LIMIT=45;
 // grantsGovSweep: three profile-independent search2 calls (individual, business, nonprofit eligibility), posted and
 // forecasted. waFundHub: up to three 100-record pages. poetsWriters: two 100-listing pages.
-export const SOURCE_FETCH_CAPS={grantsGovSweep:3,grantsGovDetail:8,careerOneStop:6,california:2,waFundHub:3,poetsWriters:2,chamber:1,studentAid:8,seedPrograms:2} as const;
+export const SOURCE_FETCH_CAPS={grantsGovSweep:3,grantsGovDetail:8,careerOneStop:6,california:2,waFundHub:3,poetsWriters:2,chamber:1,studentAid:4,seedPrograms:2,hesc:4} as const;
+// studentAid is 4: seven official aid pages remain (NY TAP now comes from the HESC source). The three
+// studentaid.gov pages come first in program order and are read at most weekly, so a weekly check always fits;
+// on that one day a state aid page beyond the cap is deferred to the next run with its stored row kept. On other
+// days only the four state aid pages (CA, PA x2, WA, each only for matching student profiles) are fetched.
+// hesc is 4: the HESC list (every 3 days) plus rotating program pages (see lib/hesc.ts), so all 19 HESC
+// program pages are read in about 5 daily runs.
 export const FIXED_SOURCE_FETCHES=Object.values(SOURCE_FETCH_CAPS).reduce((s,n)=>s+n,0);
 export const PAGE_SCAN_MIN_FETCHES=RUN_FETCH_LIMIT-FIXED_SOURCE_FETCHES;
 export const MAX_REDIRECTS=2;

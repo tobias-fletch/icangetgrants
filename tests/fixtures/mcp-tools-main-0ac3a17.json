@@ -1,0 +1,19 @@
+{
+ "note": "MCP tool names and inputSchema source text from app/mcp/route.ts at main 0ac3a17. A scheduled task depends on these; do not change.",
+ "names": [
+  "refresh_grants",
+  "grant_refresh_status",
+  "get_state_search_plan",
+  "record_state_opportunities",
+  "upcoming_deadlines",
+  "mark_state_researched"
+ ],
+ "inputSchemas": [
+  "inputSchema:{type:'object',properties:{},additionalProperties:false}",
+  "inputSchema:{type:'object',properties:{},additionalProperties:false}",
+  "inputSchema:{type:'object',properties:{limit:{type:'integer',minimum:1,maximum:RESEARCH_LIMIT_MAX,default:RESEARCH_LIMIT_DEFAULT}},additionalProperties:false}",
+  "inputSchema:{type:'object',required:['opportunities'],properties:{opportunities:{type:'array',maxItems:100,items:{type:'object',required:['stateCode','category','title','url','sourceUrl','evidence'],properties:{stateCode:{type:'string',enum:stateSources.map(s=>s.code)},cityId:{type:'string',enum:researchCityIds},foundationId:{type:'string',enum:researchFoundationIds},city:placeSchema('city'),county:placeSchema('county'),category:{type:'string',enum:[...STATE_CATEGORIES]},title:{type:'string',minLength:5,maxLength:180},url:{type:'string'},sourceUrl:{type:'string'},evidence:{type:'string',minLength:30,maxLength:1200},amount:{type:['number','null']},deadline:{type:['string','null']}},additionalProperties:false}}},additionalProperties:false}",
+  "inputSchema:{type:'object',properties:{days:{type:'integer',minimum:1,maximum:UPCOMING_MAX_DAYS,default:UPCOMING_DEFAULT_DAYS}},additionalProperties:false}",
+  "inputSchema:{type:'object',required:['stateCode','category','summary'],properties:{stateCode:{type:'string',enum:stateSources.map(s=>s.code)},cityId:{type:'string',enum:researchCityIds},foundationId:{type:'string',enum:researchFoundationIds},category:{type:'string',enum:[...STATE_CATEGORIES]},summary:{type:'string',maxLength:1200}},additionalProperties:false}"
+ ]
+}
