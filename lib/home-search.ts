@@ -52,14 +52,22 @@ export function homeSearchHref(q: string, state: string): string {
 // Topic quick links lead with the applicant types visitors pick most (small business, nonprofit), then follow the
 // /grants hub order. Only pages the hub lists (indexable, so they return 200) are passed in.
 const TOPIC_FIRST = ['/grants/small-business', '/grants/nonprofit', '/grants/scholarships'];
-export const HOME_STATE_PAGES = ['/grants/new-york', '/grants/pennsylvania', '/grants/louisiana'];
+// State chips: every state that has a /grants/<state> page in the /grants hub's "By state" list (the same list
+// the sitemap uses), so a new state page shows up on the home page by itself. The three original chips keep their
+// place at the front; every other state page follows in the hub's order (A–Z).
+export const HOME_STATE_FIRST = ['/grants/new-york', '/grants/pennsylvania', '/grants/louisiana'];
+
+export function homeStateLinks(states: QuickLink[]): QuickLink[] {
+  const rank = (p: string) => { const i = HOME_STATE_FIRST.indexOf(p); return i < 0 ? HOME_STATE_FIRST.length : i; };
+  return states.map((l, i) => ({ l, i })).sort((a, b) => rank(a.l.path) - rank(b.l.path) || a.i - b.i).map(x => x.l);
+}
 
 export function homeQuickLinks(hub: { categories: QuickLink[]; states: QuickLink[] } | null | undefined): HomeQuickLinks {
   // Only path and label go to the client; the counts stay on /grants.
   if (!hub) return NO_QUICK_LINKS;
   const rank = (p: string) => { const i = TOPIC_FIRST.indexOf(p); return i < 0 ? TOPIC_FIRST.length : i; };
   const topics = hub.categories.map((l, i) => ({ l, i })).sort((a, b) => rank(a.l.path) - rank(b.l.path) || a.i - b.i).map(x => x.l);
-  const states = HOME_STATE_PAGES.map(p => hub.states.find(s => s.path === p)).filter((s): s is QuickLink => !!s);
+  const states = homeStateLinks(hub.states);
   const pick = (l: QuickLink) => ({ path: l.path, label: l.label });
   return { topics: topics.map(pick), states: states.map(pick) };
 }
