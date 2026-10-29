@@ -8,6 +8,7 @@ import type { Grant, Profile, Workspace } from './grants';
 import { clean, countryName, stateName, interests, explicitDate, parseCalifornia, parseScholarships, parsePrivateAwards, parseBusinessGrants } from './source-parsers';
 import { relevantPrograms, checkOfficialPrograms, PROGRAM_CHECKS_JOB } from './programs';
 import { statePlan } from './state-registry';
+import { runHesc, HESC_CHECKS_JOB, type HescState } from './hesc';
 import { scanState, leadKey } from './state-discovery';
 import { sweepGrantsGov, grantsGovRecord, detailQueue, applyGrantsGovDetail, fetchWaFundHub, fetchPoetsWriters, retireMissing, crossSourceDedupe, disambiguateTitles, isClosedListing, hasTitleAndLink, visibleListings, contentChanged, refreshHealth, type RefreshAttempt } from './catalog-sweep';
 import { FetchBudget, budgetedFetch, isBudgetError, orderScanRoutes, RUN_FETCH_LIMIT, SOURCE_FETCH_CAPS, PAGE_SCAN_MIN_FETCHES } from './fetch-budget';
@@ -36,7 +37,7 @@ export async function discover(input:Profile[]){
 const CALIFORNIA_CSV='https://publish.data.ca.gov/dataset/e1b1c799-cdd4-4219-af6d-93b79747fffb/resource/111c8c88-21f6-453c-ae2c-b4785a0624f5/download/california-grants-portal-data.csv';
 async function runDiscovery(input:Profile[]){
  const profiles=monitoredProfiles(input),db=getDb(),now=new Date().toISOString();const existing=new Map((await db.select({id:catalog.id,data:catalog.data}).from(catalog)).map(x=>[x.id,JSON.parse(x.data) as Grant]));const staged=new Map<string,Grant>();const reports:SourceReport[]=[];const stateReports:StateReport[]=[];let cursor=0;const old=await db.select().from(jobs).where(eq(jobs.id,'last-refresh'));if(old[0])cursor=JSON.parse(old[0].data).cursor||0;const cycleStart=cursor;
- const budget=new FetchBudget(RUN_FETCH_LIMIT),caps={sweep:budget.child(SOURCE_FETCH_CAPS.grantsGovSweep),waFundHub:budget.child(SOURCE_FETCH_CAPS.waFundHub),detail:budget.child(SOURCE_FETCH_CAPS.grantsGovDetail),careerOneStop:budget.child(SOURCE_FETCH_CAPS.careerOneStop),california:budget.child(SOURCE_FETCH_CAPS.california),poetsWriters:budget.child(SOURCE_FETCH_CAPS.poetsWriters),chamber:budget.child(SOURCE_FETCH_CAPS.chamber),studentAid:budget.child(SOURCE_FETCH_CAPS.studentAid),seedPrograms:budget.child(SOURCE_FETCH_CAPS.seedPrograms)};let deferredRoutes:{route:string;code:string;category:string;lastScanned:string|null}[]=[];let pageScanFetches=0;
+ const budget=new FetchBudget(RUN_FETCH_LIMIT),caps={sweep:budget.child(SOURCE_FETCH_CAPS.grantsGovSweep),waFundHub:budget.child(SOURCE_FETCH_CAPS.waFundHub),detail:budget.child(SOURCE_FETCH_CAPS.grantsGovDetail),careerOneStop:budget.child(SOURCE_FETCH_CAPS.careerOneStop),california:budget.child(SOURCE_FETCH_CAPS.california),poetsWriters:budget.child(SOURCE_FETCH_CAPS.poetsWriters),chamber:budget.child(SOURCE_FETCH_CAPS.chamber),studentAid:budget.child(SOURCE_FETCH_CAPS.studentAid),seedPrograms:budget.child(SOURCE_FETCH_CAPS.seedPrograms),hesc:budget.child(SOURCE_FETCH_CAPS.hesc)};let deferredRoutes:{route:string;code:string;category:string;lastScanned:string|null}[]=[];let pageScanFetches=0;
  // Leads dedupe by normalized URL: a reworded title adopts the existing record's ID instead of creating a new one.
  const leads=new Map<string,string>();for(const g of existing.values()){const key=leadKey(g);if(key&&!leads.has(key))leads.set(key,g.id);}
  // seen=false is for cached reuse (no fetch this run): it must not refresh lastSeen, which drives the 30-day hide.
@@ -73,6 +74,19 @@ async function runDiscovery(input:Profile[]){
   const wa=await fetchWaFundHub(url=>text(url,caps.waFundHub),SOURCE_FETCH_CAPS.waFundHub,now);report.queries+=wa.queries;wa.records.forEach(g=>stage(g));const seen=new Set(wa.records.map(g=>g.id)),inactive=wa.inactiveIds,complete=wa.complete;
   report.records=seen.size;report.note=`Active Washington FundHub grants for businesses, individuals and nonprofits (${inactive.length} closed or expired listings skipped).`+(complete?'':' Listing larger than the per-run page cap; only explicitly closed records were retired.');
   retire(report,'wa-',seen,complete,'No longer listed as active on Washington FundHub',inactive);
+ }),
+ // New York HESC state grants and scholarships every run, independent of profiles (see lib/hesc.ts). Refusals are
+ // weekly-recheck warnings like studentaid.gov; stored HESC rows are kept and never retired on a failed read.
+ source('New York HESC grants & scholarships',async report=>{
+  const row=await db.select().from(jobs).where(eq(jobs.id,HESC_CHECKS_JOB));const state=row[0]?JSON.parse(row[0].data) as HescState:null;
+  const r=await runHesc({fetchHtml:url=>text(url,caps.hesc),state,now,fetchCap:SOURCE_FETCH_CAPS.hesc,isBudgetError});
+  await db.insert(jobs).values({id:HESC_CHECKS_JOB,data:JSON.stringify(r.state)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(r.state)}});
+  r.records.forEach(g=>stage(g,r.seen));report.records=r.records.length;report.queries=r.queries;if(r.deferred)report.deferred=r.deferred;
+  const pages=Object.values(r.state.pages).filter(c=>c.lastSuccess).length;
+  report.note=`Official HESC list (${r.seen?'read this run':'stored list reused'}); ${pages} of ${r.records.length} program pages read for deadlines (${r.pagesRead} this run, each at most weekly). Status is as HESC states it.`;
+  if(r.warnings.length)report.warnings=r.warnings;
+  if(r.errors.length){report.status='Partial';report.error=r.errors.join('; ');}
+  if(r.complete)retire(report,'hesc-',new Set(r.records.map(g=>g.id)),true,'No longer listed on the HESC grants & scholarships page');
  }),
  ];
  if(profiles.length)await Promise.all([...sweepSources,
@@ -137,7 +151,7 @@ async function runDiscovery(input:Profile[]){
  const marked=new Set(dedupe.markExisting.map(g=>g.id));const closedOnArrival=created.filter(g=>isClosedListing(g,now)).length;const counts={added:created.length-closedOnArrival,updated:records.filter(g=>existing.has(g.id)&&!retiredIds.has(g.id)&&!marked.has(g.id)&&contentChanged(existing.get(g.id)!,g)).length,retired:records.filter(g=>retiredIds.has(g.id)).length,deduped:dedupe.deduped};
  const liveMatches=profiles.map(p=>({profileId:p.id,matches:visible.filter(g=>match(g,p).score>0).length,newMatches:newRecords.filter(g=>match(g,p).score>0).length}));
  const matches=new Map(newRecords.map(g=>[g.id,profileMatches(g,profiles)]));const matchedNew=newRecords.filter(g=>matches.get(g.id)!.length);
- const result={checkedAt:now,checked:records.length,newGrants:newRecords.length,newMatchedOpportunities:matchedNew.length,...newOpportunityItems(newRecords,matches),closedNotReported:created.length-newRecords.length,closedOnArrival,queries:reports.reduce((s,r)=>s+r.queries,0),errors:[...reports.filter(r=>r.error).map(r=>r.name+': '+r.error),...inboxRejections],sources:reports,stateReports,profileCoverage:liveMatches,fetchBudget:{limit:RUN_FETCH_LIMIT,used:budget.used,pageScanFetches,pageScanMinimum:PAGE_SCAN_MIN_FETCHES,caps:SOURCE_FETCH_CAPS},deferredRoutes,monitoredProfiles:profiles.length,alertProfiles:profiles.filter(p=>p.alerts).length,cursor,counts,catalogRows:combined.size,visibleListings:visible.length,coverage:'Every run sweeps all posted and forecasted Grants.gov grants for individuals, businesses and nonprofits, the California Grants Portal and Washington FundHub. All 50 states have business-funding, student-aid and state arts council source routes, with per-state scholarship searches. Source-listed program leads, directories, blocked pages, and unconfirmed application cycles are distinguished.'};
+ const result={checkedAt:now,checked:records.length,newGrants:newRecords.length,newMatchedOpportunities:matchedNew.length,...newOpportunityItems(newRecords,matches),closedNotReported:created.length-newRecords.length,closedOnArrival,queries:reports.reduce((s,r)=>s+r.queries,0),errors:[...reports.filter(r=>r.error).map(r=>r.name+': '+r.error),...inboxRejections],sources:reports,stateReports,profileCoverage:liveMatches,fetchBudget:{limit:RUN_FETCH_LIMIT,used:budget.used,pageScanFetches,pageScanMinimum:PAGE_SCAN_MIN_FETCHES,caps:SOURCE_FETCH_CAPS},deferredRoutes,monitoredProfiles:profiles.length,alertProfiles:profiles.filter(p=>p.alerts).length,cursor,counts,catalogRows:combined.size,visibleListings:visible.length,coverage:'Every run sweeps all posted and forecasted Grants.gov grants for individuals, businesses and nonprofits, the California Grants Portal, Washington FundHub and the official New York HESC grants and scholarships list. All 50 states have business-funding, student-aid and state arts council source routes, with per-state scholarship searches. Source-listed program leads, directories, blocked pages, and unconfirmed application cycles are distinguished.'};
  (result as any).health=refreshHealth(result,{at:now,ok:true},Date.parse(now));
  await db.insert(jobs).values({id:'last-refresh',data:JSON.stringify(result)}).onConflictDoUpdate({target:jobs.id,set:{data:JSON.stringify(result)}});
  // One precomputed row for the /grants SEO pages, so each page view is a single D1 read (see lib/seo-store.ts).
