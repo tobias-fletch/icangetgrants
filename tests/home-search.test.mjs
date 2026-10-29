@@ -53,15 +53,46 @@ test('URL parsing trims, caps the keyword, and ignores unknown states', () => {
   assert.equal(H.homeSearchHref(' ', ''), '/');
 });
 
-test('quick links are real hub pages: small business and nonprofit first, then NY, PA, LA', () => {
+test('quick links are real hub pages: small business and nonprofit first; state chips A–Z', () => {
   const links = H.homeQuickLinks(hub);
   const hubPaths = new Set([...hub.categories, ...hub.states].map(l => l.path));
   for (const l of [...links.topics, ...links.states]) { assert.ok(hubPaths.has(l.path), l.path); assert.equal(site.pages.get(l.path)?.status, 'indexable', l.path); }
   assert.equal(links.topics.length, hub.categories.length);
   const at = p => links.topics.findIndex(l => l.path === p);
   if (at('/grants/small-business') >= 0 && at('/grants/nonprofit') >= 0) assert.ok(at('/grants/small-business') < at('/grants/nonprofit'));
-  assert.deepEqual(links.states.map(l => l.path), H.HOME_STATE_PAGES.filter(p => hubPaths.has(p)));
+  const labels = links.states.map(l => l.label);
+  assert.deepEqual(labels, [...labels].sort((a, b) => a.localeCompare(b, 'en')));
   assert.deepEqual(H.homeQuickLinks(null), H.NO_QUICK_LINKS);
+});
+
+test('home "By state" chips list exactly the states that have /grants/<state> pages', () => {
+  const statePages = [...site.pages.values()].filter(p => p.type === 'state' && S.isIndexable(p)).map(p => p.path);
+  assert.ok(statePages.length > 0);
+  const chips = H.homeQuickLinks(hub).states;
+  assert.deepEqual(chips.map(l => l.path).sort(), [...statePages].sort());
+  assert.deepEqual(chips.map(l => l.path).sort(), hub.states.map(s => s.path).sort());
+  for (const l of chips) {
+    assert.match(l.path, /^\/grants\/[a-z-]+$/);
+    assert.equal(l.label, site.pages.get(l.path).stateName, l.path);
+    assert.deepEqual(Object.keys(l).sort(), ['label', 'path']);
+  }
+  assert.equal(new Set(chips.map(l => l.path)).size, chips.length);
+});
+
+test('state chips: A–Z by label, nothing pinned; a new state page appears on its own; a state without a page drops out', () => {
+  const names = { 'california': 'California', 'louisiana': 'Louisiana', 'new-york': 'New York', 'oregon': 'Oregon', 'pennsylvania': 'Pennsylvania', 'washington': 'Washington', 'texas': 'Texas' };
+  const hubLike = (...slugs) => ({ categories: [], states: slugs.map(s => ({ path: '/grants/' + s, label: names[s], count: 5 })) });
+  const chips = h => H.homeQuickLinks(h).states.map(l => l.label);
+  // input deliberately out of order: the chips sort A–Z regardless
+  assert.deepEqual(chips(hubLike('new-york', 'washington', 'pennsylvania', 'louisiana', 'california')),
+    ['California', 'Louisiana', 'New York', 'Pennsylvania', 'Washington']);
+  assert.deepEqual(chips(hubLike('california', 'louisiana', 'new-york', 'pennsylvania', 'washington', 'oregon')),
+    ['California', 'Louisiana', 'New York', 'Oregon', 'Pennsylvania', 'Washington']);
+  assert.deepEqual(chips(hubLike('washington', 'california', 'new-york')), ['California', 'New York', 'Washington']);
+  assert.deepEqual(H.homeQuickLinks(hubLike()).states, []);
+  assert.deepEqual(H.homeQuickLinks(hubLike('texas')).states, [{ path: '/grants/texas', label: 'Texas' }]);
+  assert.equal(H.HOME_STATE_FIRST, undefined);
+  assert.equal(H.HOME_STATE_PAGES, undefined);
 });
 
 test('home search block comes first and feeds the existing results; hero, match form and alerts CTA follow unchanged', () => {
