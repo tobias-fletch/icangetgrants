@@ -1,0 +1,5 @@
+# Security contact for icangetgrants.com (RFC 9116)
+Contact: https://icangetgrants.com/contact
+Expires: 2027-10-28T23:59:00.000Z
+Preferred-Languages: en
+Canonical: https://icangetgrants.com/.well-known/security.txt

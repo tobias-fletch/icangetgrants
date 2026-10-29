@@ -6,6 +6,7 @@ import { seoCacheControl, seoRouteImpossible, type SeoSite } from "@/lib/seo-ind
 import { loadSite } from "@/app/grants/seo-data";
 import { homeCacheControl } from "@/lib/home-cache";
 import { listingPageCacheControl } from "@/lib/listing-pages";
+import { withSecurityHeaders } from "@/lib/security-headers";
 
 // Public /grants pages and the sitemap render the same HTML for every visitor (sign-in state is checked
 // client-side via /api/session), so they can be cached at the edge. 404s get a 5-minute cache instead of
@@ -22,7 +23,12 @@ async function seoSiteFor(pathname: string): Promise<SeoSite | null> {
   }
 }
 
+// Every response the app renders gets the security headers (lib/security-headers.ts).
 export async function proxy(request: NextRequest) {
+  return withSecurityHeaders(await route(request));
+}
+
+async function route(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const location = apexRedirectLocation(request.headers.get("host"), pathname, search);
   if (location) {
