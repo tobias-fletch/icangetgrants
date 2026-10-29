@@ -4,6 +4,8 @@ import { apexRedirectLocation } from "@/lib/site";
 import { seoCanonicalRedirect } from "@/lib/seo-taxonomy";
 import { seoCacheControl, seoRouteImpossible, type SeoSite } from "@/lib/seo-index";
 import { loadSite } from "@/app/grants/seo-data";
+import { homeCacheControl } from "@/lib/home-cache";
+import { listingPageCacheControl } from "@/lib/listing-pages";
 
 // Public /grants pages and the sitemap render the same HTML for every visitor (sign-in state is checked
 // client-side via /api/session), so they can be cached at the edge. 404s get a 5-minute cache instead of
@@ -42,5 +44,16 @@ export async function proxy(request: NextRequest) {
 
   const response = NextResponse.next();
   if (isSeoPath(pathname)) response.headers.set("Cache-Control", seoCacheControl(await seoSiteFor(pathname), pathname));
+  // /grants?page=N (all listings, paged): same cache as /grants, or the short 404 cache for a page that doesn't exist.
+  if (pathname === "/grants" && request.nextUrl.searchParams.has("page")) {
+    let site: SeoSite | null = null;
+    try { site = await loadSite(); } catch { site = null; }
+    response.headers.set("Cache-Control", listingPageCacheControl(site, request.nextUrl.searchParams.get("page")));
+  }
+  // Home: guests share one short-lived cached copy; anything that may be signed in is never cached (lib/home-cache.ts).
+  if (pathname === "/") {
+    response.headers.set("Cache-Control", homeCacheControl(request.headers));
+    response.headers.append("Vary", "Cookie, oai-authenticated-user-id");
+  }
   return response;
 }

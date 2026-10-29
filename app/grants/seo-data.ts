@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { readSeoIndex, type D1Like } from '@/lib/seo-store';
 import { computeSeoSite, findSeoPage, seoContent, hubContent, type SeoSite } from '@/lib/seo-index';
 import { SITE_NAME, SITE_ORIGIN } from '@/lib/site';
+import { listingPage, parseListingPage } from '@/lib/listing-pages';
 
 // Every /grants page: at most 1 D1 query (2 if the seo-index row is missing), no outbound fetches,
 // and no per-visitor data, so the HTML is identical for everyone and cacheable (see proxy.ts).
@@ -41,7 +42,18 @@ export async function segmentMetadata(segments: string[]): Promise<Metadata> {
   return metadataFor(page.path, c.title, c.description, c.indexable);
 }
 
-export async function hubMetadata(): Promise<Metadata> {
-  const h = hubContent(await loadSite());
+type HubProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
+
+/** /grants, or /grants?page=N (self-canonical; an invalid or out-of-range page is a noindex 404). */
+export async function hubMetadata(props?: HubProps): Promise<Metadata> {
+  const params = await Promise.resolve(props?.searchParams).then(p => p ?? {}).catch(() => ({} as Record<string, string | string[] | undefined>));
+  const site = await loadSite();
+  const n = parseListingPage(params.page);
+  if (n !== undefined) {
+    const lp = n === null ? null : listingPage(site, n);
+    if (!lp) return { title: { absolute: `Page not found · ${SITE_NAME}` }, robots: { index: false, follow: true } };
+    return metadataFor(lp.path, lp.title, lp.description, true);
+  }
+  const h = hubContent(site);
   return metadataFor('/grants', h.title, h.description, true);
 }
