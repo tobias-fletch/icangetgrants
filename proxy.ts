@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { apexRedirectLocation } from "@/lib/site";
+import { sitesHostRedirectLocation } from "@/lib/host-redirect";
 import { seoCanonicalRedirect } from "@/lib/seo-taxonomy";
 import { seoCacheControl, seoRouteImpossible, type SeoSite } from "@/lib/seo-index";
 import { loadSite } from "@/app/grants/seo-data";
@@ -24,6 +25,16 @@ async function seoSiteFor(pathname: string): Promise<SeoSite | null> {
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  // Guest page views on the ChatGPT Sites host move to icangetgrants.com (plugin, OAuth, API and assets stay; lib/host-redirect.ts).
+  // Not cacheable: the decision depends on sign-in state and request type, so a shared or browser cache must not replay it.
+  const sitesLocation = sitesHostRedirectLocation(request, pathname, search);
+  if (sitesLocation) {
+    const response = NextResponse.redirect(sitesLocation, 301);
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Vary", "Host, Cookie, Sec-Fetch-Dest, oai-authenticated-user-id");
+    return response;
+  }
+
   const location = apexRedirectLocation(request.headers.get("host"), pathname, search);
   if (location) {
     const response = NextResponse.redirect(location, 301);

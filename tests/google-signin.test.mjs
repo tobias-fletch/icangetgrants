@@ -614,6 +614,8 @@ test('no user-facing GrantOS or Grantwell (MCP serverInfo name excepted)', () =>
       assert.match(src, /serverInfo:\{name:'grantwell'/, 'MCP serverInfo name is kept');
       src = src.replace("serverInfo:{name:'grantwell'", '');
     }
+    // The ChatGPT Sites hostname is redirect configuration, not branding; only that exact string is exempt.
+    if (f === join('lib', 'host-redirect.ts')) src = src.replaceAll("'grantwell-match.tobias-fletch.chatgpt.site'", '');
     if (/grant\s*os|grantwell/i.test(src)) hits.push(f);
   }
   assert.deepEqual(hits, []);

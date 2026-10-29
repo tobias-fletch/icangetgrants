@@ -222,7 +222,10 @@ test('no user-facing "GrantOS" or "Grantwell" (only the MCP serverInfo name is a
     for (const file of walk(root)) {
       const rel = relative('.', file).split('\\').join('/');
       if (allowed.has(rel) || /\.(png|ico|jpg|webp)$/.test(rel)) continue;
-      if (brand.test(readFileSync(file, 'utf8'))) hits.push(rel);
+      let src = readFileSync(file, 'utf8');
+      // The ChatGPT Sites hostname is redirect configuration, not branding; only that exact string is exempt.
+      if (rel === 'lib/host-redirect.ts') src = src.replaceAll("'grantwell-match.tobias-fletch.chatgpt.site'", '');
+      if (brand.test(src)) hits.push(rel);
     }
   }
   assert.deepEqual(hits, []);
