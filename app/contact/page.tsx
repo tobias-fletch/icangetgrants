@@ -7,7 +7,16 @@ export const metadata: Metadata = {
   title: "Contact — I Can Get Grants",
   description:
     "Questions, a funding source we should add, or a listing that looks wrong? Send a message to I Can Get Grants.",
-  alternates: { canonical: "/contact" },
+  alternates: { canonical: "https://icangetgrants.com/contact" },
+  openGraph: {
+    title: "Contact — I Can Get Grants",
+    description:
+      "Questions, a funding source we should add, or a listing that looks wrong? Send a message to I Can Get Grants.",
+    url: "https://icangetgrants.com/contact",
+    siteName: "I Can Get Grants",
+    type: "website",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "I Can Get Grants — Find funding that fits you" }],
+  },
 };
 
 export default function ContactPage() {
