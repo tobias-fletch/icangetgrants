@@ -1,0 +1,18 @@
+# Static-file response headers (Workers static assets format).
+# vinext only writes its own _headers when this file is missing, so its immutable-cache rule is kept here.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/.well-known/security.txt
+  Content-Type: text/plain; charset=utf-8
+
+# Security headers for static files. Same values as lib/security-headers.ts, which proxy.ts adds to every
+# page, /api/* and /auth/* response; keep the two in sync (tests/security-headers.test.mjs checks it).
+# HSTS 1 year; no includeSubDomains (IONOS autodiscover subdomain has no HTTPS), no preload. CSP is enforced.
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), midi=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://tobiasfletcher.com https://cloudflareinsights.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests
