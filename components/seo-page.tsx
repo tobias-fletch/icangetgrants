@@ -3,9 +3,11 @@ import { Leaf } from 'lucide-react';
 import { SITE_NAME } from '@/lib/site';
 import { listingView, jsonLdScript, type SeoListing, type Crumb } from '@/lib/seo-index';
 import { HeaderAccountLink } from '@/components/seo-session';
+import { UsageClicks } from '@/components/usage-clicks';
 
 // Server-rendered, plain-HTML layout for the /grants pages. Works without JavaScript; the only client
-// pieces are the sign-in aware CTA and header link (components/seo-session.tsx).
+// pieces are the sign-in aware CTA and header link (components/seo-session.tsx) and the first-party
+// outbound-click counter (components/usage-clicks.tsx).
 
 export function SeoShell({ path, children }: { path: string; children: ReactNode }) {
   return (
@@ -22,6 +24,7 @@ export function SeoShell({ path, children }: { path: string; children: ReactNode
         </nav>
       </header>
       <main className="seo-main">{children}</main>
+      <UsageClicks />
       <footer>
         <span>Public funding sources. Confirm eligibility and deadlines with the provider.</span>
         <nav className="footer-links" aria-label="Policies and contact">
@@ -64,7 +67,7 @@ export function ListingList({ items, now }: { items: SeoListing[]; now: Date }) 
         const v = listingView(l, now);
         return (
           <li key={l.id} className="seo-listing">
-            <h3><a href={l.url} target="_blank" rel="nofollow noopener">{l.title}</a></h3>
+            <h3><a href={l.url} target="_blank" rel="nofollow noopener" data-usage="apply_click">{l.title}</a></h3>
             <p className="seo-funder">{l.funder}</p>
             <dl className="seo-facts">
               <div><dt>Award</dt><dd>{v.amount}</dd></div>

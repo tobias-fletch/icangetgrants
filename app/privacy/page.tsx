@@ -285,6 +285,15 @@ export default function PrivacyPage() {
       </p>
       {analyticsLine ? <p>{analyticsLine}</p> : null}
       <p>
+        I Can Get Grants also keeps its own first-party daily totals in its
+        database: how many home searches were run (the search words are not
+        sent or stored), how many grant cards were opened, and how many links
+        to an official source or application page were clicked. Each total is
+        only a date, an event name and a number. No cookies, IP addresses,
+        browser details or account ids are stored with them, no third-party
+        script is involved, and only the site owner can see the totals.
+      </p>
+      <p>
         Cloudflare and OpenAI may keep their own standard request logs,
         including IP addresses, under their own policies (<a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare’s privacy policy</a> and 
         <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noopener noreferrer">OpenAI’s privacy policy</a>).
