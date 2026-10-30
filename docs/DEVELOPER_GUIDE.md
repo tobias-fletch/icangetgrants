@@ -74,8 +74,8 @@ If you run `wrangler dev` yourself, pass an explicit `--inspector-port` (the sta
 
 - **Live branch: `main`.** There is no git-triggered deploy.
 - Flow: feature branch → PR into `main` → merge → **Codex publishes a new numbered version** through ChatGPT Sites. Merging alone does not change the live site.
-- Live version at the time of writing: **v28** (deployment `appgdep_6ae35774e6c481919490fd6a2bf23190`).
-- **Rollback:** re-publish the previous version (v27) from ChatGPT Sites/Codex. Then fix forward in git with `git revert -m 1 <merge-commit>` on a branch and a PR. Never force-push.
+- Live version before the PA/WA go-live (2026-10-30): **v29** (main `2caef8e`, PR #39; v28 was deployment `appgdep_6ae35774e6c481919490fd6a2bf23190`). The PA/WA release publishes as the next version (expected v30).
+- **Rollback:** re-publish the previous version (for the PA/WA release, v29 at `2caef8e`) from ChatGPT Sites/Codex. Then fix forward in git with `git revert -m 1 <merge-commit>` on a branch and a PR. Never force-push.
 - D1 migrations on the hosted database are applied by the Sites publish step (**to confirm** exactly how).
 
 ## 7. Data and database
@@ -117,9 +117,10 @@ If you run `wrangler dev` yourself, pass an explicit `--inspector-port` (the sta
 ## 13. To confirm
 
 - How hosted D1 migrations are applied during a Codex publish.
-- Whether v28 is still the live version when you read this.
+- Whether the version above is still the live version when you read this.
 
 ## Changelog
 
 - 2026-10-29: guide created
 - 2026-10-30: added official state aid sources for Pennsylvania (PHEAA program list, 18 programs, `lib/pheaa.ts`) and Washington (WSAC state financial aid programs, 9 programs, `lib/wsac.ts`), in the HESC pattern: 1 fetch each per run, lists re-read every 3 days, refusals become weekly-recheck warnings, rows retired only after a complete list read. Caps moved: studentAid 4 → 3 and careerOneStop 6 → 5, so fixed caps stay 35 and page scans keep 10 (run total 45). PA State Grant, Grow PA and the Washington College Grant now come only from these sources. Tests: `tests/pa-wa-state-sources.test.mjs`.
+- 2026-10-30: PA/WA go-live. PR #40 (this guide) merged to `main`, then PR #42 (the PHEAA and WSAC sources) merged on top of it, approved by Tobias for publishing. Published through Codex/ChatGPT Sites as the next version after v29; rollback is v29 (`2caef8e`). The new sources fill in on the next refresh run (daily, 9 a.m. Eastern), not at publish. No database migration, env var or binding changes.
