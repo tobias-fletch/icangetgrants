@@ -81,7 +81,7 @@ If you run `wrangler dev` yourself, pass an explicit `--inspector-port` (the sta
 ## 7. Data and database
 
 - Hosted D1 (binding `DB`) holds the shared catalog, refresh runs, user profiles, saved items, notes, Google account links and daily usage counters. Migrations: `0000_huge_taskmaster`, `0001_google_links`, `0002_catalog_city_county`, `0003_usage_daily`.
-- **Grants refresh:** a private scheduled task runs daily at 9 a.m. Eastern and calls the owner-only MCP tools `refresh_grants` / `grant_refresh_status`. It updates the catalog in place and does not republish the site. One run makes at most 45 outside fetches, with per-source caps in `lib/fetch-budget.ts`.
+- **Grants refresh:** a private scheduled task runs daily at 9 a.m. Eastern and calls the owner-only MCP tools `refresh_grants` / `grant_refresh_status`. It updates the catalog in place and does not republish the site. One run makes at most 45 outside fetches, with per-source caps in `lib/fetch-budget.ts`. Official state aid lists are read by their own sources, each with its own small cap and jobs row: New York HESC (`lib/hesc.ts`), Pennsylvania PHEAA (`lib/pheaa.ts`) and Washington WSAC (`lib/wsac.ts`).
 - `/api/workspace` returns `refresh.health` (`ok`, `partial`, `failed`, or `stale` after 26 hours with no successful run).
 
 ## 8. Hosting and DNS
@@ -122,3 +122,4 @@ If you run `wrangler dev` yourself, pass an explicit `--inspector-port` (the sta
 ## Changelog
 
 - 2026-10-29: guide created
+- 2026-10-30: added official state aid sources for Pennsylvania (PHEAA program list, 18 programs, `lib/pheaa.ts`) and Washington (WSAC state financial aid programs, 9 programs, `lib/wsac.ts`), in the HESC pattern: 1 fetch each per run, lists re-read every 3 days, refusals become weekly-recheck warnings, rows retired only after a complete list read. Caps moved: studentAid 4 → 3 and careerOneStop 6 → 5, so fixed caps stay 35 and page scans keep 10 (run total 45). PA State Grant, Grow PA and the Washington College Grant now come only from these sources. Tests: `tests/pa-wa-state-sources.test.mjs`.
