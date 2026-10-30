@@ -74,7 +74,7 @@ test('records: honest status, official links, New York student aid; the list lin
 });
 
 test('fetch cap: HESC gets 2 of the existing 45 fetches, page scans keep at least 10',()=>{
- assert.equal(B.RUN_FETCH_LIMIT,45);assert.equal(B.SOURCE_FETCH_CAPS.hesc,4);assert.equal(B.SOURCE_FETCH_CAPS.studentAid,4);
+ assert.equal(B.RUN_FETCH_LIMIT,45);assert.equal(B.SOURCE_FETCH_CAPS.hesc,4);assert.equal(B.SOURCE_FETCH_CAPS.studentAid,3);
  assert.equal(B.FIXED_SOURCE_FETCHES,Object.values(B.SOURCE_FETCH_CAPS).reduce((s,n)=>s+n,0));
  assert.equal(B.FIXED_SOURCE_FETCHES+B.PAGE_SCAN_MIN_FETCHES,45);assert.ok(B.PAGE_SCAN_MIN_FETCHES>=10);
  assert.ok(B.SOURCE_FETCH_CAPS.studentAid>=PR.aidPrograms.filter(p=>!p.replacedBy&&!PR.weeklyProgram(p)).length,'non-weekly official aid pages still fit');
@@ -135,7 +135,7 @@ test('wiring: honest user agent fetch, own cap, own jobs row, retirement only af
  assert.doesNotMatch(readFileSync('lib/hesc.ts','utf8'),/Mozilla|Chrome\/|GrantOS/);
 });
 
-test('studentAid cap 4: the three weekly studentaid.gov checks always fit; state aid pages wait at most one run',async()=>{
+test('studentAid cap 3: the three weekly studentaid.gov checks always fit; the California page waits at most one run',async()=>{
  const progs=PR.aidPrograms.filter(p=>!p.replacedBy);
  assert.deepEqual(progs.filter(PR.weeklyProgram).map(p=>p.id),['pell','fseog','teach']);
  assert.ok(progs.findIndex(p=>!PR.weeklyProgram(p))>2,'studentaid.gov pages come first in program order');
@@ -144,10 +144,11 @@ test('studentAid cap 4: the three weekly studentaid.gov checks always fit; state
   return {r,fetched,used:cap.used};};
  // Weekly day (refused, as studentaid.gov does today): all three weekly checks are attempted inside the cap.
  let {r,fetched,used}=await run({},NOW);
- assert.equal(used,4);assert.equal(fetched.filter(u=>/studentaid\.gov/.test(u)).length,3);
- assert.deepEqual(Object.keys(r.checks).sort(),['fseog','pell','teach']);assert.equal(r.deferred,3);assert.equal(r.warnings.length,3);
- // Next run: weekly pages are not due, so all four state aid pages fit.
+ assert.equal(used,3);assert.equal(fetched.filter(u=>/studentaid\.gov/.test(u)).length,3);
+ assert.deepEqual(Object.keys(r.checks).sort(),['fseog','pell','teach']);assert.equal(r.deferred,1);assert.equal(r.warnings.length,3);
+ // Next run: weekly pages are not due, so the one remaining state aid page (California; PA and WA now come from
+ // the PHEAA and WSAC sources) fits.
  const next=new Date(Date.parse(NOW)+86400000).toISOString();
  ({r,fetched,used}=await run(r.checks,next));
- assert.equal(fetched.filter(u=>/studentaid\.gov/.test(u)).length,0);assert.equal(fetched.length,4);assert.equal(r.deferred,0);
+ assert.equal(fetched.filter(u=>/studentaid\.gov/.test(u)).length,0);assert.deepEqual(fetched,['https://csac.ca.gov/programs']);assert.equal(r.deferred,0);
 });

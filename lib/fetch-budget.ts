@@ -6,13 +6,21 @@
 export const RUN_FETCH_LIMIT=45;
 // grantsGovSweep: three profile-independent search2 calls (individual, business, nonprofit eligibility), posted and
 // forecasted. waFundHub: up to three 100-record pages. poetsWriters: two 100-listing pages.
-export const SOURCE_FETCH_CAPS={grantsGovSweep:3,grantsGovDetail:8,careerOneStop:6,california:2,waFundHub:3,poetsWriters:2,chamber:1,studentAid:4,seedPrograms:2,hesc:4} as const;
-// studentAid is 4: seven official aid pages remain (NY TAP now comes from the HESC source). The three
-// studentaid.gov pages come first in program order and are read at most weekly, so a weekly check always fits;
-// on that one day a state aid page beyond the cap is deferred to the next run with its stored row kept. On other
-// days only the four state aid pages (CA, PA x2, WA, each only for matching student profiles) are fetched.
+export const SOURCE_FETCH_CAPS={grantsGovSweep:3,grantsGovDetail:8,careerOneStop:5,california:2,waFundHub:3,poetsWriters:2,chamber:1,studentAid:3,seedPrograms:2,hesc:4,pheaa:1,wsac:1} as const;
+// Fixed caps sum to 35 (unchanged since the HESC source), so page scans keep their minimum of 10 and the run stays
+// at 45. The 2 fetches for PHEAA and WSAC come from studentAid (4 -> 3) and careerOneStop (6 -> 5):
+// studentAid is 3: four official aid pages remain (NY TAP comes from the HESC source; PA State Grant, Grow PA and
+// the Washington College Grant now come from the PHEAA and WSAC sources). The three studentaid.gov pages come first
+// in program order and are read at most weekly, so a weekly check always fits; on that one day the California aid
+// page waits for the next run with its stored row kept. On other days only the California page (for matching
+// student profiles) is fetched.
+// careerOneStop is 5: the national search every run plus up to four state/interest searches; one student profile
+// (national, its state, three interests) still gets all five every run, and more profiles rotate as before.
 // hesc is 4: the HESC list (every 3 days) plus rotating program pages (see lib/hesc.ts), so all 19 HESC
 // program pages are read in about 5 daily runs.
+// pheaa is 1: the stored site bundle (the PHEAA program list) every 3 days; the page shell only when PHEAA publishes
+// a new bundle (see lib/pheaa.ts). wsac is 1: the WSAC list every 3 days, otherwise one WSAC program page, so each of
+// its seven WSAC-hosted program pages is read about every 10 days (never more than weekly; see lib/wsac.ts).
 export const FIXED_SOURCE_FETCHES=Object.values(SOURCE_FETCH_CAPS).reduce((s,n)=>s+n,0);
 export const PAGE_SCAN_MIN_FETCHES=RUN_FETCH_LIMIT-FIXED_SOURCE_FETCHES;
 export const MAX_REDIRECTS=2;

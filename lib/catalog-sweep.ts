@@ -426,8 +426,8 @@ export function refusalKind(e: unknown): string | null {
   if (/ECONNRESET|connection (?:was )?reset|stream reset|socket hang up|network connection lost|other side closed|UND_ERR_SOCKET/i.test(text)) return 'reset the connection';
   if (/ECONNREFUSED|connection refused/i.test(text)) return 'refused the connection';
   if (/\bHTTP (?:403|429)\b/.test(text)) return 'refused the request (' + text.match(/HTTP (?:403|429)/)![0] + ')';
-  // 5xx (including Cloudflare's 520): the site's server or its front door failed us. Only the weekly studentaid.gov
-  // and hesc.ny.gov checks call refusalKind, so this does not soften 5xx errors from any other source.
+  // 5xx (including Cloudflare's 520): the site's server or its front door failed us. Only the weekly studentaid.gov,
+  // hesc.ny.gov, pheaa.org and wsac.wa.gov checks call refusalKind, so this does not soften 5xx errors from any other source.
   if (/\bHTTP 5\d\d\b/.test(text)) return 'returned a server error (' + text.match(/HTTP 5\d\d/)![0] + ')';
   if (/^TypeError\b.*fetch failed/i.test(text)) return 'refused the connection';
   return null;
