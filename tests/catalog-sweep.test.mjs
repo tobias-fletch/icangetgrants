@@ -257,12 +257,13 @@ test('fix 1: same normalized title and deadline across sources is a duplicate; G
  assert.deepEqual(S.crossSourceDedupe(M([{...w,id:'wa-2205',url:'https://fundhub.wa.gov/grant/2205'}]),M([w])).dropNew,[]);
 });
 
-test('fix 2: forecasts whose estimated date passed, or over two years old, are closed and hidden (rows kept)',async()=>{
+test('fix 2: forecasts whose estimated application date passed, or over two years old, are closed and hidden (rows kept)',async()=>{
  const r=await S.sweepGrantsGov(okSearch);const hit=r.hits.get('358676');
  const aeif=S.applyGrantsGovDetail(S.grantsGovRecord(hit,undefined,NOW),{forecast:{...detailForecast.forecast,estSynopsisPostingDateStr:'2022-01-30-00-00-00',estApplicationResponseDateStr:'2022-01-30-00-00-00'}},NOW);
  assert.equal(aeif.status,'Closed');assert.equal(aeif.live,false);assert.match(aeif.closedReason,/estimated application date has passed/);assert.ok(S.isHiddenListing(aeif,NOW));
  const slipped=S.applyGrantsGovDetail(S.grantsGovRecord(hit,undefined,NOW),{forecast:{...detailForecast.forecast,estSynopsisPostingDateStr:'2026-09-01-00-00-00',estApplicationResponseDateStr:'2027-01-15-00-00-00'}},NOW);
- assert.equal(slipped.status,'Closed');assert.match(slipped.closedReason,/posting date has passed/);
+ // A slipped posting estimate with the application estimate still ahead stays listed (fixed 2026-10-30).
+ assert.equal(slipped.status,'Opens soon');assert.equal(slipped.closedReason,undefined);assert.ok(!S.isHiddenListing(slipped,NOW));
  // No detail yet: a forecast posted on Grants.gov over 730 days ago is closed from the sweep alone (AFCP 2020).
  const afcp=S.grantsGovRecord({...hit,openDate:'09/20/2019'},undefined,NOW);assert.equal(afcp.status,'Closed');assert.match(afcp.closedReason,/over two years old/);
  assert.ok(!S.detailQueue([afcp],NOW,8).length,'closed forecasts are not looked up again');

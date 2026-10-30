@@ -16,6 +16,11 @@ export const FORECAST_STALE_AFTER_DAYS = 730;
 // A fetch that returns fewer than this share of a source's previously active listings is treated as suspect:
 // nothing is retired for that source in this run and the source is reported Partial.
 export const RETIRE_MIN_SHARE = 0.5;
+// Agencies routinely slip a forecast's estimated posting date while Grants.gov keeps listing the forecast with a
+// future estimated application date (ACL/NIDILRR SBIR Phase I, 2026-10-30: posting est. Oct 16, close est. Dec 16).
+// A passed posting estimate alone never closes a forecast; with no application estimate it closes only once the
+// posting estimate is this many days past.
+export const FORECAST_POSTING_GRACE_DAYS = 90;
 
 // ---------- Grants.gov ----------
 // Three sweep searches cover every applicant type the site supports. Eligibility codes: 21 individuals,
@@ -116,12 +121,14 @@ export function grantsGovRecord(hit: SweepHit, prev: Grant | undefined, now: str
   return g;
 }
 
-/** Why a forecast should no longer be listed: an estimated posting or application date from the Grants.gov
- *  notice is already past, or the forecast itself was first posted over FORECAST_STALE_AFTER_DAYS ago. */
+/** Why a forecast should no longer be listed: its estimated application date from the Grants.gov notice is
+ *  already past, it has no application estimate and its posting estimate is over FORECAST_POSTING_GRACE_DAYS past,
+ *  or the forecast itself was first posted over FORECAST_STALE_AFTER_DAYS ago. A posting estimate that has passed
+ *  while the application estimate is still ahead is a slipped posting date, not a stale forecast: it stays listed. */
 export function staleForecastReason(g: Pick<Grant, 'estPostingDate' | 'estDueDate' | 'forecastPostedOn'>, now: string): string | null {
   const today = easternDay(now);
   if (g.estDueDate && g.estDueDate < today) return 'Forecast estimated application date has passed';
-  if (g.estPostingDate && g.estPostingDate < today) return 'Forecast estimated posting date has passed';
+  if (!g.estDueDate && g.estPostingDate && Date.parse(now) - Date.parse(g.estPostingDate + 'T12:00:00Z') > FORECAST_POSTING_GRACE_DAYS * DAY_MS) return 'Forecast estimated posting date has passed';
   if (g.forecastPostedOn && Date.parse(now) - Date.parse(g.forecastPostedOn + 'T12:00:00Z') > FORECAST_STALE_AFTER_DAYS * DAY_MS) return 'Forecast is over two years old';
   return null;
 }
@@ -157,7 +164,8 @@ export function applyGrantsGovDetail(g: Grant, data: any, now: string): Grant {
   return out;
 }
 /** Detail lookups for this run: never-enriched records first, then enriched records not re-checked for
- *  DETAIL_REFRESH_DAYS, oldest first. Half of the pending slots go to forecasts (their estimated dates decide
+ *  DETAIL_REFRESH_DAYS, oldest first (this includes forecasts closed for a stale estimate that Grants.gov still
+ *  lists, so a revised estimate brings them back). Half of the pending slots go to forecasts (their estimated dates decide
  *  "expected" and stale), alternating the oldest-posted (most likely stale) and newest-posted forecast; the rest
  *  go to posted records, soonest deadline first. Unused slots on either side go to the other. */
 export function detailQueue(records: Grant[], now: string, limit: number): Grant[] {
@@ -169,7 +177,8 @@ export function detailQueue(records: Grant[], now: string, limit: number): Grant
   const fSlots = Math.min(forecasts.length, Math.max(Math.ceil(limit / 2), limit - posted.length));
   const pending = [...posted.slice(0, limit - fSlots), ...forecasts.slice(0, fSlots), ...posted.slice(limit - fSlots), ...forecasts.slice(fSlots)];
   const lastDetail = (g: Grant) => Date.parse(g.detailChecked || g.discovered || '') || 0;
-  const due = records.filter(g => !g.detailPending && g.status !== 'Closed' && lastDetail(g) < cutoff).sort((a, b) => lastDetail(a) - lastDetail(b) || a.id.localeCompare(b.id));
+  const recheck = (g: Grant) => g.status !== 'Closed' || !!g.closedReason?.startsWith('Forecast estimated');
+  const due = records.filter(g => !g.detailPending && recheck(g) && lastDetail(g) < cutoff).sort((a, b) => lastDetail(a) - lastDetail(b) || a.id.localeCompare(b.id));
   return [...pending, ...due].slice(0, limit);
 }
 
