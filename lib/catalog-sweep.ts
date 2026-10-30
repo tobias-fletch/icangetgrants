@@ -402,6 +402,25 @@ export const contentChanged = (prev: Grant, next: Grant) => stable(prev) !== sta
 
 // ---------- Health ----------
 export type RefreshCounts = { added: number; updated: number; retired: number; deduped: number };
+/** closedReason values staleForecastReason sets. */
+export const STALE_FORECAST_REASONS: ReadonlySet<string> = new Set(['Forecast estimated application date has passed', 'Forecast estimated posting date has passed', 'Forecast is over two years old']);
+/** True when this run moved a listed record to Closed (row kept, hidden) under the stale-forecast rules. */
+export const staleForecastClosure = (prev: Grant | undefined, next: Grant) => !!prev && prev.status !== 'Closed' && next.status === 'Closed' && STALE_FORECAST_REASONS.has(next.closedReason || '');
+/** Run counts for refresh health. retired: rows missing from a complete source feed (retiredIds) plus listed
+ *  forecasts this run closed under the stale-forecast rules (PM decision 2026-10-30; no separate bucket). updated:
+ *  other existing rows whose visible content changed, including a closed forecast reopening (never a negative
+ *  retired). New rows closed on arrival are neither added nor retired; dedupe-marked rows count only as deduped. */
+export function refreshCounts(input: { existing: Map<string, Grant>; records: Grant[]; retiredIds: Set<string>; marked: Set<string>; closedOnArrival: number; deduped: number }): RefreshCounts {
+  const { existing, records, retiredIds, marked } = input;
+  let added = 0, updated = 0, retired = 0;
+  for (const g of records) {
+    const prev = existing.get(g.id);
+    if (!prev) { added++; continue; }
+    if (retiredIds.has(g.id) || staleForecastClosure(prev, g)) { retired++; continue; }
+    if (!marked.has(g.id) && contentChanged(prev, g)) updated++;
+  }
+  return { added: added - input.closedOnArrival, updated, retired, deduped: input.deduped };
+}
 export type HealthWarning = { source: string; message: string };
 export type RefreshHealth = { status: 'ok' | 'partial' | 'failed' | 'stale'; checkedAt: string | null; lastAttemptAt: string | null; failedSources: string[]; warnings: HealthWarning[] } & RefreshCounts;
 export type RefreshAttempt = { at: string; ok: boolean; error?: string };

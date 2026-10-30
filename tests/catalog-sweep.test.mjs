@@ -230,7 +230,7 @@ test('health: ok, partial, failed and stale',()=>{
 test('health is public in /api/workspace and the refresh status, and run failures are recorded',()=>{
  const catalog=readFileSync('lib/catalog.ts','utf8');assert.match(catalog,/health: refreshHealth\(last, attempt\)/);assert.match(catalog,/'last-refresh-attempt'/);assert.match(catalog,/isHiddenListing/);
  const discovery=readFileSync('lib/discovery.ts','utf8');assert.match(discovery,/saveAttempt\(\{at,ok:false,error:/);assert.match(discovery,/saveAttempt\(\{at,ok:true\}\)/);assert.match(discovery,/throw e;/);
- assert.match(discovery,/counts=\{added:/);assert.match(readFileSync('app/api/refresh/route.ts','utf8'),/health:refreshHealth\(lastRefresh,lastAttempt\)/);
+ assert.match(discovery,/counts=refreshCounts\(\{existing,records,retiredIds,marked,closedOnArrival,deduped:dedupe\.deduped\}\)/);assert.match(readFileSync('app/api/refresh/route.ts','utf8'),/health:refreshHealth\(lastRefresh,lastAttempt\)/);
  // No new scheduled job: the worker still exports only fetch, and wrangler config has no cron trigger.
  const worker=readFileSync('build/sites-worker.ts','utf8');assert.doesNotMatch(worker,/scheduled/);
  for(const f of ['wrangler.jsonc','wrangler.toml','wrangler.json']){try{assert.doesNotMatch(readFileSync(f,'utf8'),/crons|triggers/);}catch(e){if(e.code!=='ENOENT')throw e;}}

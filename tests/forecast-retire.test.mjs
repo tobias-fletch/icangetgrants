@@ -22,14 +22,17 @@ const PHASE1='gov-363966',PHASE2='gov-363967';
 /** One Grants.gov refresh as runDiscovery does it (sweep, records, detail lookups, retirement, dedupe), pure. */
 async function refresh(existing,now,{details=true}={}){
  const sweep=await S.sweepGrantsGov(search);
- const records=new Map([...sweep.hits.values()].map(h=>{const g=S.grantsGovRecord(h,existing.get('gov-'+h.id),now);return [g.id,g];}));
- if(details)for(const g of S.detailQueue([...records.values()],now,8))records.set(g.id,S.applyGrantsGovDetail(g,fx.details[g.grantsGovId],now));
- const staged=new Map(records);
- const r=S.retireMissing({prefix:'gov-',existing:existing.values(),seenIds:new Set(records.keys()),complete:sweep.complete,reason:'No longer posted or forecasted on Grants.gov',now});
+ const fetched=new Map([...sweep.hits.values()].map(h=>{const g=S.grantsGovRecord(h,existing.get('gov-'+h.id),now);return [g.id,g];}));
+ if(details)for(const g of S.detailQueue([...fetched.values()],now,8))fetched.set(g.id,S.applyGrantsGovDetail(g,fx.details[g.grantsGovId],now));
+ const staged=new Map(fetched);
+ const r=S.retireMissing({prefix:'gov-',existing:existing.values(),seenIds:new Set(fetched.keys()),complete:sweep.complete,reason:'No longer posted or forecasted on Grants.gov',now});
  for(const g of r.retired)if(!staged.has(g.id))staged.set(g.id,g);
  const d=S.crossSourceDedupe(staged,existing);for(const id of d.dropNew)staged.delete(id);for(const g of [...d.markExisting,...d.clearExisting])staged.set(g.id,g);
  const catalog=new Map(existing);for(const [id,g] of staged)catalog.set(id,g);
- return {catalog,visible:new Set(S.visibleListings([...catalog.values()],now).map(g=>g.id)),retired:r.retired.map(g=>g.id)};
+ const records=[...staged.values()],retiredIds=new Set(r.retired.map(g=>g.id)),marked=new Set(d.markExisting.map(g=>g.id));
+ const closedOnArrival=records.filter(g=>!existing.has(g.id)&&S.isClosedListing(g,now)).length;
+ const counts=S.refreshCounts({existing,records,retiredIds,marked,closedOnArrival,deduped:d.deduped});
+ return {catalog,visible:new Set(S.visibleListings([...catalog.values()],now).map(g=>g.id)),retired:r.retired.map(g=>g.id),counts};
 }
 
 test('regression: a forecast still listed on Grants.gov with a future estimated close is never closed or retired',async()=>{
@@ -88,4 +91,41 @@ test('mechanism: forecasts closed on an estimate that Grants.gov still lists are
  // Open records waiting on a first lookup still go first.
  const pending={id:'gov-2',grantsGovId:'2',title:'Y',url:'https://www.grants.gov/search-results-detail/2',status:'Opens soon',live:true,detailPending:true,forecastPostedOn:'2026-10-01'};
  assert.deepEqual(S.detailQueue([closedOnEstimate,pending],NOW,1).map(g=>g.id),['gov-2']);
+});
+
+test('health counts (PM decision 3, 2026-10-30): a stale-forecast closure counts as retired, not updated; a reopen counts as updated',async()=>{
+ const first=await refresh(new Map(),NOW);
+ assert.deepEqual(first.counts,{added:4,updated:0,retired:0,deduped:0});
+ // Dec 18: Phase I (est. close Dec 16) and the two Field Initiated forecasts (Dec 14) are closed by staleForecastReason
+ // during the sweep while Grants.gov still lists them, so retireMissing retires nothing; Phase II stays listed.
+ const late=await refresh(first.catalog,'2026-12-18T14:00:00.000Z',{details:false});
+ assert.deepEqual(late.retired,[],'none of these left the Grants.gov feed');
+ for(const id of [PHASE1,'gov-363971','gov-363972'])assert.ok(S.STALE_FORECAST_REASONS.has(late.catalog.get(id).closedReason),id);
+ assert.equal(late.counts.retired,3,'stale-forecast closures increment retired');
+ // The only update is Phase II, whose Dec 1 posting estimate has now passed (opensOn cleared); it stays listed.
+ assert.equal(late.catalog.get(PHASE2).status,'Opens soon');assert.equal(late.catalog.get(PHASE2).opensOn,null);
+ assert.equal(late.counts.updated,1,'the three closures do not increment updated');
+ assert.deepEqual(late.counts,{added:0,updated:1,retired:3,deduped:0});
+ // Same run with Phase II held back: only the closures are counted, all as retired.
+ const closuresOnly=S.refreshCounts({existing:first.catalog,records:[PHASE1,'gov-363971','gov-363972'].map(id=>late.catalog.get(id)),retiredIds:new Set(),marked:new Set(),closedOnArrival:0,deduped:0});
+ assert.deepEqual(closuresOnly,{added:0,updated:0,retired:3,deduped:0});
+ // The next run: already closed, nothing new to count (no double retire).
+ const after=await refresh(late.catalog,'2026-12-19T14:00:00.000Z',{details:false});
+ assert.deepEqual(after.counts,{added:0,updated:0,retired:0,deduped:0});
+ // A forecast reopening (the stored 9:05 AM row closed by the old rule) is an update, never a negative retired.
+ const stored={...first.catalog.get(PHASE1),status:'Closed',live:false,closedReason:'Forecast estimated posting date has passed'};
+ const reopen=await refresh(new Map([...first.catalog,[PHASE1,stored]]),'2026-10-31T13:05:00.000Z',{details:false});
+ assert.equal(reopen.catalog.get(PHASE1).status,'Opens soon');
+ assert.deepEqual(reopen.counts,{added:0,updated:1,retired:0,deduped:0});
+});
+
+test('health counts: refreshCounts unit cases',()=>{
+ const base={id:'gov-9',grantsGovId:'9',title:'F',url:'https://www.grants.gov/search-results-detail/9',status:'Opens soon',live:true,description:'x'};
+ const C=(prev,next,extra={})=>S.refreshCounts({existing:new Map(prev?[[prev.id,prev]]:[]),records:[next],retiredIds:new Set(),marked:new Set(),closedOnArrival:0,deduped:0,...extra});
+ for(const reason of S.STALE_FORECAST_REASONS)assert.deepEqual(C(base,{...base,status:'Closed',live:false,closedReason:reason}),{added:0,updated:0,retired:1,deduped:0},reason);
+ assert.deepEqual(C({...base,status:'Closed',live:false,closedReason:'Forecast estimated application date has passed'},base),{added:0,updated:1,retired:0,deduped:0},'reopen');
+ assert.deepEqual(C(base,{...base,title:'F2'}),{added:0,updated:1,retired:0,deduped:0},'ordinary update');
+ assert.deepEqual(C(base,{...base,status:'Closed',live:false,retiredAt:NOW,closedReason:'No longer posted or forecasted on Grants.gov'},{retiredIds:new Set(['gov-9'])}),{added:0,updated:0,retired:1,deduped:0},'feed retirement unchanged');
+ assert.deepEqual(C(base,{...base,status:'Closed',live:false,closedReason:'Marked closed by the source'}),{added:0,updated:1,retired:0,deduped:0},'non-forecast closures not reclassified');
+ assert.deepEqual(C(undefined,{...base,status:'Closed',live:false,closedReason:'Forecast is over two years old'},{closedOnArrival:1}),{added:0,updated:0,retired:0,deduped:0},'closed on arrival is neither added nor retired');
 });
