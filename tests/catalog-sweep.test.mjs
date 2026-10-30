@@ -230,7 +230,7 @@ test('health: ok, partial, failed and stale',()=>{
 test('health is public in /api/workspace and the refresh status, and run failures are recorded',()=>{
  const catalog=readFileSync('lib/catalog.ts','utf8');assert.match(catalog,/health: refreshHealth\(last, attempt\)/);assert.match(catalog,/'last-refresh-attempt'/);assert.match(catalog,/isHiddenListing/);
  const discovery=readFileSync('lib/discovery.ts','utf8');assert.match(discovery,/saveAttempt\(\{at,ok:false,error:/);assert.match(discovery,/saveAttempt\(\{at,ok:true\}\)/);assert.match(discovery,/throw e;/);
- assert.match(discovery,/counts=\{added:/);assert.match(readFileSync('app/api/refresh/route.ts','utf8'),/health:refreshHealth\(lastRefresh,lastAttempt\)/);
+ assert.match(discovery,/counts=refreshCounts\(\{existing,records,retiredIds,marked,closedOnArrival,deduped:dedupe\.deduped\}\)/);assert.match(readFileSync('app/api/refresh/route.ts','utf8'),/health:refreshHealth\(lastRefresh,lastAttempt\)/);
  // No new scheduled job: the worker still exports only fetch, and wrangler config has no cron trigger.
  const worker=readFileSync('build/sites-worker.ts','utf8');assert.doesNotMatch(worker,/scheduled/);
  for(const f of ['wrangler.jsonc','wrangler.toml','wrangler.json']){try{assert.doesNotMatch(readFileSync(f,'utf8'),/crons|triggers/);}catch(e){if(e.code!=='ENOENT')throw e;}}
@@ -257,12 +257,13 @@ test('fix 1: same normalized title and deadline across sources is a duplicate; G
  assert.deepEqual(S.crossSourceDedupe(M([{...w,id:'wa-2205',url:'https://fundhub.wa.gov/grant/2205'}]),M([w])).dropNew,[]);
 });
 
-test('fix 2: forecasts whose estimated date passed, or over two years old, are closed and hidden (rows kept)',async()=>{
+test('fix 2: forecasts whose estimated application date passed, or over two years old, are closed and hidden (rows kept)',async()=>{
  const r=await S.sweepGrantsGov(okSearch);const hit=r.hits.get('358676');
  const aeif=S.applyGrantsGovDetail(S.grantsGovRecord(hit,undefined,NOW),{forecast:{...detailForecast.forecast,estSynopsisPostingDateStr:'2022-01-30-00-00-00',estApplicationResponseDateStr:'2022-01-30-00-00-00'}},NOW);
  assert.equal(aeif.status,'Closed');assert.equal(aeif.live,false);assert.match(aeif.closedReason,/estimated application date has passed/);assert.ok(S.isHiddenListing(aeif,NOW));
  const slipped=S.applyGrantsGovDetail(S.grantsGovRecord(hit,undefined,NOW),{forecast:{...detailForecast.forecast,estSynopsisPostingDateStr:'2026-09-01-00-00-00',estApplicationResponseDateStr:'2027-01-15-00-00-00'}},NOW);
- assert.equal(slipped.status,'Closed');assert.match(slipped.closedReason,/posting date has passed/);
+ // A slipped posting estimate with the application estimate still ahead stays listed (fixed 2026-10-30).
+ assert.equal(slipped.status,'Opens soon');assert.equal(slipped.closedReason,undefined);assert.ok(!S.isHiddenListing(slipped,NOW));
  // No detail yet: a forecast posted on Grants.gov over 730 days ago is closed from the sweep alone (AFCP 2020).
  const afcp=S.grantsGovRecord({...hit,openDate:'09/20/2019'},undefined,NOW);assert.equal(afcp.status,'Closed');assert.match(afcp.closedReason,/over two years old/);
  assert.ok(!S.detailQueue([afcp],NOW,8).length,'closed forecasts are not looked up again');
